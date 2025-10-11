@@ -134,8 +134,8 @@ jobs:
     - name: Download dependencies
       run: go mod download
         
-    - name: Install gosec
-      run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-        
     - name: Run Gosec Security Scanner
-      run: gosec ./...
+      run: |
+        # Install gosec using the binary release method
+        curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.21.4
+        gosec ./...
