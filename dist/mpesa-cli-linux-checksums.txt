@@ -1,0 +1,9 @@
+f3a5e9c928f6ebd31aadd1044970b0ad3b17326cd29a974e7cc19a59acc9da7e  mpesa-cli_0.0.0-next_linux_386.deb
+713f97cd69560af33d7c4d22fdfd89fe142d1ca67d037d39999ab2fa25e3d791  mpesa-cli_0.0.0-next_linux_386.rpm
+57f04d42f779d1895bc34aa4a2f44ca279d3789b8a356ab2d12d988383657a35  mpesa-cli_0.0.0-next_linux_amd64.deb
+6c498470a9eb139e132832803fec768e5e0cce6538fd7aab7e9559c5e719a04b  mpesa-cli_0.0.0-next_linux_amd64.rpm
+96a7c5b94d51e009cf6555c4bac389457760e2dfd15a10ce22ba0a7db0b850c2  mpesa-cli_0.0.0-next_linux_arm64.deb
+78f47665170b6f4d86eadabdf1d9702f9d1782405af619c14746455f54870431  mpesa-cli_0.0.0-next_linux_arm64.rpm
+5e3b156cfc730b82ab140ce048f78c3571b4b63b26f2764fbc0cb569e92bf9a4  mpesa-cli_0.0.0-next_linux_arm64.tar.gz
+b27f5a24ec0a74590d4ece92f3bafcca4f201af7bd201de0405c9d1a95288d45  mpesa-cli_0.0.0-next_linux_i386.tar.gz
+6e3ba1588f1351df6d25ffe4f5f1b42b08aa5bcf37a1e2c1d3dac88446976970  mpesa-cli_0.0.0-next_linux_x86_64.tar.gz

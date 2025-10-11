@@ -26,7 +26,7 @@ func TestGetAccessTokenSuccess(t *testing.T) {
 			"access_token": mockToken,
 			"expires_in":   "3600",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

@@ -21,7 +21,7 @@ and Consumer Secret, validates them, and stores them in your system's keychain.`
 
 		fmt.Print("? Consumer Key: ")
 		var consumerKey string
-		fmt.Scanln(&consumerKey)
+		_, _ = fmt.Scanln(&consumerKey)
 		consumerKey = strings.TrimSpace(consumerKey)
 
 		// Validate consumer key

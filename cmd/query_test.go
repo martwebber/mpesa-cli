@@ -3,20 +3,12 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"io"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 )
-
-// mockMpesaService provides mock implementations for testing
-type mockMpesaService struct {
-	getCredentialsFunc   func() (string, string, error)
-	getAccessTokenFunc   func(string, string) (string, error)
-	queryTransactionFunc func(string, string) (interface{}, error)
-}
 
 // TestQueryCommandSuccess tests successful query execution
 func TestQueryCommandSuccess(t *testing.T) {
@@ -143,7 +135,7 @@ func TestQueryCommandValidation(t *testing.T) {
 
 	// Add the flag
 	cmd.Flags().StringP("id", "i", "", "Transaction ID (required)")
-	cmd.MarkFlagRequired("id")
+	_ = cmd.MarkFlagRequired("id")
 
 	// Set args without the required flag
 	os.Args = []string{"cmd", "query"}
@@ -202,18 +194,4 @@ func TestQueryCommandWithRealQueryCmd(t *testing.T) {
 	}
 }
 
-// captureOutput captures stdout during test execution
-func captureOutput(f func()) string {
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
 
-	f()
-
-	w.Close()
-	os.Stdout = old
-
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	return buf.String()
-}

@@ -56,5 +56,5 @@ var queryCmd = &cobra.Command{
 func init() {
 	transactionsCmd.AddCommand(queryCmd)
 	queryCmd.Flags().StringVarP(&transactionID, "id", "i", "", "The ID of the transaction to query (required)")
-	queryCmd.MarkFlagRequired("id")
+	_ = queryCmd.MarkFlagRequired("id")
 }

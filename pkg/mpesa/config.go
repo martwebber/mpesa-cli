@@ -48,12 +48,12 @@ func GetConfig() (*Config, error) {
 	viper.SetEnvPrefix("MPESA")
 
 	// Bind environment variables explicitly for underscore handling
-	viper.BindEnv("environment")
-	viper.BindEnv("business_shortcode")
-	viper.BindEnv("security_credential")
-	viper.BindEnv("initiator")
-	viper.BindEnv("result_url")
-	viper.BindEnv("queue_timeout_url")
+	_ = viper.BindEnv("environment")
+	_ = viper.BindEnv("business_shortcode")
+	_ = viper.BindEnv("security_credential")
+	_ = viper.BindEnv("initiator")
+	_ = viper.BindEnv("result_url")
+	_ = viper.BindEnv("queue_timeout_url")
 
 	// Read config file if it exists (don't error if it doesn't)
 	if err := viper.ReadInConfig(); err != nil {

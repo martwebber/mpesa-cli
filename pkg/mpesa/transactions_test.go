@@ -45,7 +45,7 @@ func TestQueryTransactionWithConfigSuccess(t *testing.T) {
 
 		// Send mock response
 		w.Header().Set(contentType, applicationJSON)
-		json.NewEncoder(w).Encode(mockResponse)
+		_ = json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
