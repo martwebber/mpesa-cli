@@ -400,6 +400,29 @@ A: Yes! Use environment variables for authentication and the `--format json` fla
 **Q: How do I export large datasets?**
 A: Use the `--format csv` option with `--output filename.csv` to export data efficiently.
 
+## Development
+
+### Release System
+
+M-Pesa CLI uses a comprehensive automated release and distribution system:
+
+- **Automated Builds**: Multi-platform binaries (Linux, macOS, Windows, FreeBSD)
+- **Package Distribution**: Homebrew, Scoop, Docker (GHCR), APT, YUM repositories
+- **Security**: Container signing with cosign, SBOM generation, vulnerability scanning
+- **Quality Assurance**: Full CI/CD validation with security scanning before release
+
+For detailed information about the release system, see [Release System Documentation](docs/RELEASE_SYSTEM.md).
+
+### Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'feat: add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+Please follow [Conventional Commits](https://conventionalcommits.org/) for commit messages.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
