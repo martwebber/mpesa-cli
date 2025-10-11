@@ -22,7 +22,7 @@ func TestSaveConfigTemplate(t *testing.T) {
 	}
 
 	// Read the file back
-	content, err := os.ReadFile(configPath)
+	content, err := os.ReadFile(configPath) // #nosec G304 - configPath is controlled in test
 	if err != nil {
 		t.Fatalf("failed to read config file: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestGetConfigWithDefaults(t *testing.T) {
 	// Create a minimal config file
 	configContent := `environment: sandbox`
 	configPath := filepath.Join(tmpDir, "mpesa-cli.yaml")
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	if err != nil {
 		t.Fatalf("failed to write config file: %v", err)
 	}
@@ -85,24 +85,24 @@ func TestGetConfigWithDefaults(t *testing.T) {
 // TestGetConfigFromEnvVars tests configuration from environment variables
 func TestGetConfigFromEnvVars(t *testing.T) {
 	// Use sandbox environment for this test to avoid validation issues
-	const testCredential = "test-credential"
+	const testCredential = "test-credential" // #nosec G101 - This is a test credential, not hardcoded
 
 	// Clear viper state and environment variables first
 	viper.Reset()
-	os.Unsetenv("MPESA_ENVIRONMENT")
-	os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
-	os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
+	_ = os.Unsetenv("MPESA_ENVIRONMENT")
+	_ = os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
+	_ = os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
 
 	// Set environment variables for a valid sandbox config (simpler validation)
-	os.Setenv("MPESA_ENVIRONMENT", "sandbox")
-	os.Setenv("MPESA_BUSINESS_SHORTCODE", "123456")
-	os.Setenv("MPESA_SECURITY_CREDENTIAL", testCredential)
+	_ = os.Setenv("MPESA_ENVIRONMENT", "sandbox")
+	_ = os.Setenv("MPESA_BUSINESS_SHORTCODE", "123456")
+	_ = os.Setenv("MPESA_SECURITY_CREDENTIAL", testCredential)
 
 	// Clean up environment variables after test
 	defer func() {
-		os.Unsetenv("MPESA_ENVIRONMENT")
-		os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
-		os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
+		_ = os.Unsetenv("MPESA_ENVIRONMENT")
+		_ = os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
+		_ = os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
 	}()
 
 	config, err := GetConfig()
@@ -164,20 +164,20 @@ func TestGetConfigValidationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear viper state and all environment variables first
 			viper.Reset()
-			os.Unsetenv("MPESA_ENVIRONMENT")
-			os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
-			os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
+			_ = os.Unsetenv("MPESA_ENVIRONMENT")
+			_ = os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
+			_ = os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
 
 			// Set environment variables for this test
 			for key, value := range tt.envVars {
-				os.Setenv(key, value)
+				_ = os.Setenv(key, value)
 			}
 
 			// Clean up environment variables after test
 			defer func() {
-				os.Unsetenv("MPESA_ENVIRONMENT")
-				os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
-				os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
+				_ = os.Unsetenv("MPESA_ENVIRONMENT")
+				_ = os.Unsetenv("MPESA_BUSINESS_SHORTCODE")
+				_ = os.Unsetenv("MPESA_SECURITY_CREDENTIAL")
 			}()
 
 			_, err := GetConfig()
