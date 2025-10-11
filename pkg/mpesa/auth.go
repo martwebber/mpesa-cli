@@ -12,14 +12,27 @@ import (
 
 const serviceName = "mpesa-cli"
 
-// A struct to hold the response from the M-Pesa auth API
+// authResponse holds the response from the M-Pesa OAuth API
 type authResponse struct {
 	AccessToken string `json:"access_token"`
 	ExpiresIn   string `json:"expires_in"`
 }
 
+// AuthURL is the M-Pesa OAuth endpoint URL (can be modified for testing)
 var AuthURL = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
 
+// GetAccessToken authenticates with the M-Pesa API using consumer credentials.
+// It sends a request to the M-Pesa OAuth endpoint and returns an access token
+// that can be used for subsequent API calls. The token is valid for the duration
+// specified in the ExpiresIn field of the response.
+//
+// Parameters:
+//   - consumerKey: The consumer key from the Daraja portal
+//   - consumerSecret: The consumer secret from the Daraja portal
+//
+// Returns:
+//   - string: The access token for API authentication
+//   - error: Any error that occurred during authentication
 func GetAccessToken(consumerKey, consumerSecret string) (string, error) {
 	req, err := http.NewRequest("GET", AuthURL, nil)
 	if err != nil {
@@ -53,7 +66,17 @@ func GetAccessToken(consumerKey, consumerSecret string) (string, error) {
 	return result.AccessToken, nil
 }
 
-// SetCredentials stores the consumer key and secret in the system keychain.
+// SetCredentials securely stores the M-Pesa consumer key and secret in the system keychain.
+// The credentials are encrypted and stored using the operating system's native
+// keychain/credential manager (Keychain on macOS, Credential Manager on Windows,
+// Secret Service on Linux).
+//
+// Parameters:
+//   - consumerKey: The consumer key to store
+//   - consumerSecret: The consumer secret to store
+//
+// Returns:
+//   - error: Any error that occurred during storage
 func SetCredentials(consumerKey, consumerSecret string) error {
 	err := keyring.Set(serviceName, "consumer_key", consumerKey)
 	if err != nil {
@@ -68,7 +91,13 @@ func SetCredentials(consumerKey, consumerSecret string) error {
 	return nil
 }
 
-// GetCredentials retrieves the consumer key and secret from the system keychain.
+// GetCredentials retrieves the M-Pesa consumer key and secret from the system keychain.
+// The credentials must have been previously stored using SetCredentials.
+//
+// Returns:
+//   - string: The consumer key
+//   - string: The consumer secret
+//   - error: Any error that occurred during retrieval, including if credentials are not found
 func GetCredentials() (string, string, error) {
 	consumerKey, err := keyring.Get(serviceName, "consumer_key")
 	if err != nil {

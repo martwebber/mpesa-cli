@@ -1,0 +1,216 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+          
+      - name: Run tests
+        run: go test -v ./...
+
+  build-linux:
+    needs: test
+    runs-on: ubuntu-22.04
+    env:
+      # https://goreleaser.com/customization/docker_manifest/
+      DOCKER_CLI_EXPERIMENTAL: "enabled"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+
+      - name: Docker Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Run GoReleaser (Linux)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release -f .goreleaser/linux.yml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-mac:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+
+      - name: Run GoReleaser (macOS)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release -f .goreleaser/mac.yml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.x
+
+      - name: Install MinGW
+        run: |
+          choco install mingw
+        shell: powershell
+
+      - name: Run GoReleaser (Windows)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release -f .goreleaser/windows.yml --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
+
+  # Upload binaries to VirusTotal for security scanning
+  security-scan:
+    needs: [build-windows]
+    runs-on: ubuntu-latest
+    if: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Upload Windows binaries to VirusTotal
+        run: |
+          # Find and upload .exe files to VirusTotal
+          find . -name "*.exe" -type f | while read file; do
+            echo "Uploading $file to VirusTotal"
+            curl --request POST \
+              --url 'https://www.virustotal.com/vtapi/v2/file/scan' \
+              --header 'Content-Type: multipart/form-data' \
+              --form "apikey=${{ secrets.VIRUSTOTAL_API_KEY }}" \
+              --form "file=@$file"
+          done
+        shell: bash
+
+  # Create a combined release with all artifacts
+  create-release:
+    needs: [build-linux, build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Release Notes
+        run: |
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          # Generate release notes
+          cat > release_notes.md << 'EOF'
+          ## What's Changed
+          
+          This release includes binaries for:
+          - **Linux**: amd64, arm64, 386 (also available as .deb and .rpm packages)
+          - **macOS**: amd64 (Intel), arm64 (Apple Silicon) - Available via Homebrew
+          - **Windows**: amd64, 386 - Available via Scoop
+          - **Docker**: Multi-platform images for amd64 and arm64
+          
+          ### Installation Methods
+          
+          #### Homebrew (macOS/Linux)
+          ```bash
+          brew install martwebber/tap/mpesa-cli
+          ```
+          
+          #### Scoop (Windows)
+          ```powershell
+          scoop bucket add martwebber https://github.com/martwebber/scoop-bucket
+          scoop install mpesa-cli
+          ```
+          
+          #### Docker
+          ```bash
+          docker run --rm ghcr.io/martwebber/mpesa-cli:latest --help
+          ```
+          
+          #### Direct Download
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Getting Started
+          After installation, run:
+          ```bash
+          mpesa-cli login
+          ```
+          
+          For help and documentation:
+          ```bash
+          mpesa-cli --help
+          mpesa-cli doctor
+          ```
+          EOF
+
+      - name: Update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

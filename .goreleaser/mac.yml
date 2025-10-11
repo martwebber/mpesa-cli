@@ -1,0 +1,108 @@
+version: 2
+
+env:
+  - GO111MODULE=on
+
+before:
+  hooks:
+    - go mod download
+    - go mod verify
+    - go generate ./...
+
+project_name: mpesa-cli
+
+builds:
+  - id: mpesa-cli-darwin
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    binary: mpesa-cli
+    env:
+      - CGO_ENABLED=1
+    main: ./main.go
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: darwin-archives
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- if eq .Os "darwin"}}macos
+      {{- else }}{{ .Os }}{{end}}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    builds:
+      - mpesa-cli-darwin
+    files:
+      - README.md
+      - LICENSE
+    format: tar.gz
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^refactor:"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+
+checksum:
+  name_template: "{{ .ProjectName }}-macos-checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Version }}-next"
+
+# Homebrew
+brews:
+  - name: mpesa-cli
+    repository:
+      owner: martwebber
+      name: homebrew-tap
+      token: "{{ .Env.GORELEASER_GITHUB_TOKEN }}"
+    commit_author:
+      name: Martin Mwangi
+      email: mwangi.martin24@gmail.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: https://github.com/martwebber/mpesa-cli
+    description: A command-line interface for M-Pesa API operations
+    license: MIT
+    skip_upload: auto
+    dependencies:
+      - name: ca-certificates
+    test: |
+      system "#{bin}/mpesa-cli", "--version"
+    install: |
+      bin.install "mpesa-cli"
+
+      # Generate shell completions
+      generate_completions_from_executable(bin/"mpesa-cli", "completion")
+    caveats: |
+      🎉 Thanks for installing the M-Pesa CLI!
+
+      Get started by running:
+        mpesa-cli login
+
+      For help and documentation:
+        mpesa-cli --help
+        mpesa-cli doctor
+
+# Code signing for macOS (requires certificates)
+signs:
+  - artifacts: checksum
+    cmd: gpg
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"

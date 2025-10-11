@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"syscall"
 
@@ -17,7 +16,7 @@ var loginCmd = &cobra.Command{
 	Short: "Authenticate with the M-Pesa API",
 	Long: `The login command securely prompts for your M-Pesa Consumer Key
 and Consumer Secret, validates them, and stores them in your system's keychain.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("First, please enter your credentials from the Daraja Portal.")
 
 		fmt.Print("? Consumer Key: ")
@@ -25,13 +24,25 @@ and Consumer Secret, validates them, and stores them in your system's keychain.`
 		fmt.Scanln(&consumerKey)
 		consumerKey = strings.TrimSpace(consumerKey)
 
+		// Validate consumer key
+		if consumerKey == "" {
+			fmt.Println("❌ Consumer Key cannot be empty")
+			return fmt.Errorf("consumer key cannot be empty")
+		}
+
 		fmt.Print("? Consumer Secret: ")
 		byteSecret, err := term.ReadPassword(int(syscall.Stdin))
 		if err != nil {
-			log.Fatalf("Failed to read secret: %v", err)
+			return fmt.Errorf("failed to read secret: %w", err)
 		}
 		consumerSecret := strings.TrimSpace(string(byteSecret))
 		fmt.Println()
+
+		// Validate consumer secret
+		if consumerSecret == "" {
+			fmt.Println("❌ Consumer Secret cannot be empty")
+			return fmt.Errorf("consumer secret cannot be empty")
+		}
 
 		done := make(chan bool)
 		go showSpinner("Authenticating with M-Pesa...", done)
@@ -42,18 +53,20 @@ and Consumer Secret, validates them, and stores them in your system's keychain.`
 
 		if err != nil {
 			fmt.Println("\n❌ Authentication failed.")
-			log.Fatalf("Error: %v", err)
+			return fmt.Errorf("authentication failed: %w", err)
 		}
 
 		fmt.Println("\n✔ Authentication successful!")
 
 		err = mpesa.SetCredentials(consumerKey, consumerSecret)
 		if err != nil {
-			log.Fatalf("Failed to store credentials: %v", err)
+			return fmt.Errorf("failed to store credentials: %w", err)
 		}
 
 		fmt.Println("✅ Your credentials have been securely stored.")
 		fmt.Println("💡 Tip: Run `mpesa doctor` to check your connection.")
+
+		return nil
 	},
 }
 

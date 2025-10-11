@@ -1,6 +1,5 @@
 /*
 Copyright © 2025 NAME HERE mwangi.martin24@gmail.com
-
 */
 package cmd
 
@@ -14,18 +13,37 @@ import (
 
 var cfgFile string
 
+// Version information
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
+
+// SetVersionInfo sets the version information for the CLI
+func SetVersionInfo(v, c, d string) {
+	version = v
+	commit = c
+	date = d
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date)
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mpesa-cli",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "A command-line interface for M-Pesa API operations",
+	Long: `M-Pesa CLI is a command-line tool that allows you to interact with the M-Pesa API
+for various operations like transaction queries, authentication, and health checks.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Features:
+- Secure credential management using system keychain
+- Support for both sandbox and production environments
+- Transaction status queries
+- Health checks and diagnostics
+- Easy authentication workflow
+
+Get started by running: mpesa-cli login`,
 }
-
 
 func Execute() {
 	err := rootCmd.Execute()
@@ -36,7 +54,6 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.mpesa-cli.yaml)")
 
