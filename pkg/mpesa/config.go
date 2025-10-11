@@ -128,5 +128,5 @@ environment: sandbox
 # queue_timeout_url: "https://yourdomain.com/mpesa/timeout"
 `
 
-	return os.WriteFile(filepath, []byte(configTemplate), 0644)
+	return os.WriteFile(filepath, []byte(configTemplate), 0600)
 }
