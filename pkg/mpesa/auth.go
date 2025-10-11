@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/zalando/go-keyring"
+	keyring "github.com/zalando/go-keyring"
 )
 
 const serviceName = "mpesa-cli"
