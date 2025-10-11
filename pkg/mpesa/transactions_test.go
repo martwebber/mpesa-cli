@@ -11,7 +11,7 @@ import (
 // TestQueryTransactionWithConfigSuccess tests successful transaction query with mock config
 func TestQueryTransactionWithConfigSuccess(t *testing.T) {
 	const (
-		testCredential  = "test-credential"  // #nosec G101 - This is a test credential, not hardcoded
+		testCredential  = "test-credential" // #nosec G101 - This is a test credential, not hardcoded
 		testResultURL   = "https://test.com/result"
 		testTimeoutURL  = "https://test.com/timeout"
 		testAccessToken = "test-access-token"
@@ -75,7 +75,7 @@ func TestQueryTransactionWithConfigSuccess(t *testing.T) {
 // TestQueryTransactionWithNilConfig tests that nil config falls back to defaults
 func TestQueryTransactionWithNilConfig(t *testing.T) {
 	const (
-		testCredential  = "test-credential"  // #nosec G101 - This is a test credential, not hardcoded
+		testCredential  = "test-credential" // #nosec G101 - This is a test credential, not hardcoded
 		testResultURL   = "https://test.com/result"
 		testTimeoutURL  = "https://test.com/timeout"
 		testAccessToken = "test-access-token"
@@ -96,7 +96,7 @@ func TestQueryTransactionWithNilConfig(t *testing.T) {
 // TestQueryTransactionNetworkError tests handling of network errors
 func TestQueryTransactionNetworkError(t *testing.T) {
 	const (
-		testCredential  = "test-credential"  // #nosec G101 - This is a test credential, not hardcoded
+		testCredential  = "test-credential" // #nosec G101 - This is a test credential, not hardcoded
 		testResultURL   = "https://test.com/result"
 		testTimeoutURL  = "https://test.com/timeout"
 		testAccessToken = "test-access-token"

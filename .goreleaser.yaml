@@ -103,7 +103,7 @@ brews:
         type: optional
     install: |
       bin.install "mpesa-cli"
-      
+
       # Install shell completions
       bash_completion.install "completions/mpesa-cli.bash" => "mpesa-cli"
       zsh_completion.install "completions/mpesa-cli.zsh" => "_mpesa-cli"
@@ -153,7 +153,7 @@ dockers:
 
 # Checksums
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
   algorithm: sha256
 
 # SBOMs (Software Bill of Materials)
@@ -172,11 +172,11 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^ci:'
-      - '^build:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^build:"
       - typo
       - Merge pull request
       - Merge remote-tracking branch
@@ -207,36 +207,36 @@ release:
   mode: replace
   header: |
     ## M-Pesa CLI {{ .Tag }} 🚀
-    
+
     Welcome to this new release of M-Pesa CLI! 
-    
+
     ### Installation
-    
+
     #### Homebrew (macOS/Linux)
     ```bash
     brew install martwebber/tap/mpesa-cli
     ```
-    
+
     #### Scoop (Windows)
     ```powershell
     scoop bucket add martwebber https://github.com/martwebber/scoop-bucket.git
     scoop install mpesa-cli
     ```
-    
+
     #### Docker
     ```bash
     docker run --rm ghcr.io/martwebber/mpesa-cli:{{ .Tag }} version
     ```
-    
+
     #### Download Binary
     Download the appropriate binary for your system from the assets below.
   footer: |
     ### Verification
-    
+
     All binaries are signed and can be verified using the checksums below.
-    
+
     **Full Changelog**: https://github.com/martwebber/mpesa-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
-  
+
   # Disable SCM release
   disable: false
 
@@ -245,7 +245,6 @@ milestones:
   - close: true
     fail_on_error: false
     name_template: "{{ .Tag }}"
-
 # Announce (can be configured for various platforms)
 # announces:
 #   - provider: discord

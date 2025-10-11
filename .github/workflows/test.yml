@@ -1,6 +1,6 @@
 name: Test
 
-on: 
+on:
   push:
     branches: [ main, develop ]
   pull_request:
@@ -95,19 +95,11 @@ jobs:
     - name: Verify dependencies
       run: go mod verify
       
-    - name: Debug dependencies
-      run: |
-        echo "=== go.mod content ==="
-        cat go.mod
-        echo "=== keyring dependency check ==="
-        grep -i keyring go.mod || echo "keyring not found in go.mod"
-        echo "=== go list dependencies ==="
-        go list -m all | grep -i keyring || echo "keyring not in module list"
-        
-    - name: golangci-lint
+    - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.61.0
+        # Use latest v2.x version which supports the new config format and Go 1.24+
+        version: v2.5.0
         args: --timeout=5m
         skip-cache: true
         install-mode: binary
