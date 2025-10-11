@@ -107,9 +107,10 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v6
       with:
-        version: latest
+        version: v1.62.2
         args: --timeout=5m
         skip-cache: true
+        install-mode: binary
 
   security:
     runs-on: ubuntu-latest
