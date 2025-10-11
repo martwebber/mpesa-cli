@@ -138,6 +138,5 @@ jobs:
       run: |
         # Install gosec using the binary release method
         curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.21.4
-        # Add GOPATH/bin to PATH and run gosec
-        export PATH=$(go env GOPATH)/bin:$PATH
-        gosec ./...
+        # Run gosec using full path
+        $(go env GOPATH)/bin/gosec ./...
