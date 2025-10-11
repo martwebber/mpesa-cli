@@ -5,6 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/martwebber/mpesa-cli)](https://github.com/martwebber/mpesa-cli/releases)
 [![GHCR](https://img.shields.io/badge/ghcr-latest-blue)](https://github.com/martwebber/mpesa-cli/pkgs/container/mpesa-cli)
 [![License](https://img.shields.io/github/license/martwebber/mpesa-cli)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/martwebber/mpesa-cli)](go.mod)
 
 A powerful command-line interface for interacting with the M-Pesa API. Built with Go and designed for developers, businesses, and individuals who need to integrate M-Pesa services into their workflows.
 
