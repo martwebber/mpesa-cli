@@ -1,0 +1,24 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - misspell
+
+issues:
+  exclude:
+    # Allow unchecked errors on common functions where it's usually okay
+    - 'Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|os\.(Un)?Setenv). is not checked'
+    # Allow unchecked errors on MarkFlagRequired - this is a common pattern
+    - "Error return value of.*MarkFlagRequired.* is not checked"
+
+linters-settings:
+  goimports:
+    local-prefixes: github.com/martwebber/mpesa-cli

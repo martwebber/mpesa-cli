@@ -193,5 +193,3 @@ func TestQueryCommandWithRealQueryCmd(t *testing.T) {
 		t.Error("expected RunE to be set")
 	}
 }
-
-

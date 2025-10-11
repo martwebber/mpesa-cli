@@ -1,1 +1,1 @@
-{"project_name":"mpesa-cli","tag":"v0.0.0","previous_tag":"","version":"0.0.0-next","commit":"c705ccf4941e7032d555a45c3dc5d2cb68b0c2ac","date":"2025-10-11T23:28:35.783303284+03:00","runtime":{"goos":"linux","goarch":"amd64"}}
+{"project_name":"mpesa-cli","tag":"v0.0.0","previous_tag":"","version":"0.0.1-next","commit":"6e80361e0a3a882907c4cd82c698477cc8a194fa","date":"2025-10-12T01:26:22.513240242+03:00","runtime":{"goos":"linux","goarch":"amd64"}}

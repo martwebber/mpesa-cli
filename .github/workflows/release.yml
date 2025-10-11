@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
 
 permissions:
   contents: write
@@ -11,206 +11,173 @@ permissions:
   id-token: write
 
 jobs:
-  test:
+  # Run all CI checks before release
+  pre-release-validation:
+    uses: ./.github/workflows/test.yml
+
+  # Release job - only runs after successful validation
+  release:
     runs-on: ubuntu-latest
+    needs: pre-release-validation
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24.x
-          
-      - name: Run tests
-        run: go test -v ./...
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.24.x
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
 
-  build-linux:
-    needs: test
-    runs-on: ubuntu-22.04
-    env:
-      # https://goreleaser.com/customization/docker_manifest/
-      DOCKER_CLI_EXPERIMENTAL: "enabled"
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24.x
+    # Generate completions for packaging
+    - name: Generate completions
+      run: |
+        go build -o mpesa-cli-temp .
+        ./mpesa-cli-temp completion bash > completions/mpesa-cli.bash
+        ./mpesa-cli-temp completion zsh > completions/mpesa-cli.zsh
+        ./mpesa-cli-temp completion fish > completions/mpesa-cli.fish
+        ./mpesa-cli-temp completion powershell > completions/mpesa-cli.ps1
+        rm mpesa-cli-temp
+        
+    # Login to GitHub Container Registry
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    # Set up QEMU for multi-arch builds
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      
+    # Set up Docker Buildx
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    # Install cosign for signing
+    - name: Install cosign
+      uses: sigstore/cosign-installer@v3
+      with:
+        cosign-release: 'v2.2.4'
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+    # Install syft for SBOM generation
+    - name: Install syft
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Run GoReleaser (Linux)
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release -f .goreleaser/linux.yml --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Run GoReleaser
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        SCOOP_BUCKET_GITHUB_TOKEN: ${{ secrets.SCOOP_BUCKET_GITHUB_TOKEN }}
 
-  build-mac:
-    needs: test
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24.x
+    # Sign container images with cosign
+    - name: Sign container images
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        images=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep ghcr.io/martwebber/mpesa-cli | grep -v REPOSITORY)
+        for image in $images; do
+          echo "Signing $image"
+          cosign sign --yes $image
+        done
 
-      - name: Run GoReleaser (macOS)
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release -f .goreleaser/mac.yml --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-
-  build-windows:
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24.x
-
-      - name: Install MinGW
-        run: |
-          choco install mingw
-        shell: powershell
-
-      - name: Run GoReleaser (Windows)
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release -f .goreleaser/windows.yml --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_GITHUB_TOKEN: ${{ secrets.GORELEASER_GITHUB_TOKEN }}
-
-  # Upload binaries to VirusTotal for security scanning
+  # Security scan of released artifacts
   security-scan:
-    needs: [build-windows]
     runs-on: ubuntu-latest
-    if: ${{ secrets.VIRUSTOTAL_API_KEY != '' }}
+    needs: release
+    if: always() && needs.release.result == 'success'
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'ghcr.io/martwebber/mpesa-cli:${{ github.ref_name }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
         
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        
-      - name: Upload Windows binaries to VirusTotal
-        run: |
-          # Find and upload .exe files to VirusTotal
-          find . -name "*.exe" -type f | while read file; do
-            echo "Uploading $file to VirusTotal"
-            curl --request POST \
-              --url 'https://www.virustotal.com/vtapi/v2/file/scan' \
-              --header 'Content-Type: multipart/form-data' \
-              --form "apikey=${{ secrets.VIRUSTOTAL_API_KEY }}" \
-              --form "file=@$file"
-          done
-        shell: bash
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
 
-  # Create a combined release with all artifacts
-  create-release:
-    needs: [build-linux, build-mac, build-windows]
+  # Create GitHub Deployment
+  create-deployment:
     runs-on: ubuntu-latest
+    needs: [release, security-scan]
+    if: always() && needs.release.result == 'success'
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Create Deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: deployment } = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.ref,
+            environment: 'production',
+            description: 'Release ${{ github.ref_name }}',
+            auto_merge: false,
+            required_contexts: []
+          });
+          
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: deployment.id,
+            state: 'success',
+            description: 'Successfully released ${{ github.ref_name }}',
+            environment_url: 'https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}'
+          });
 
-      - name: Create Release Notes
-        run: |
-          # Extract version from tag
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          
-          # Generate release notes
-          cat > release_notes.md << 'EOF'
-          ## What's Changed
-          
-          This release includes binaries for:
-          - **Linux**: amd64, arm64, 386 (also available as .deb and .rpm packages)
-          - **macOS**: amd64 (Intel), arm64 (Apple Silicon) - Available via Homebrew
-          - **Windows**: amd64, 386 - Available via Scoop
-          - **Docker**: Multi-platform images for amd64 and arm64
-          
-          ### Installation Methods
-          
-          #### Homebrew (macOS/Linux)
-          ```bash
-          brew install martwebber/tap/mpesa-cli
-          ```
-          
-          #### Scoop (Windows)
-          ```powershell
-          scoop bucket add martwebber https://github.com/martwebber/scoop-bucket
-          scoop install mpesa-cli
-          ```
-          
-          #### Docker
-          ```bash
-          docker run --rm ghcr.io/martwebber/mpesa-cli:latest --help
-          ```
-          
-          #### Direct Download
-          Download the appropriate binary for your platform from the assets below.
-          
-          ### Getting Started
-          After installation, run:
-          ```bash
-          mpesa-cli login
-          ```
-          
-          For help and documentation:
-          ```bash
-          mpesa-cli --help
-          mpesa-cli doctor
-          ```
-          EOF
-
-      - name: Update Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Notify on success/failure
+  notify:
+    runs-on: ubuntu-latest
+    needs: [release, security-scan, create-deployment]
+    if: always()
+    
+    steps:
+    - name: Notify Success
+      if: needs.release.result == 'success'
+      run: |
+        echo "🎉 Release ${{ github.ref_name }} completed successfully!"
+        echo "📦 Packages published to:"
+        echo "  - GitHub Releases"
+        echo "  - GitHub Container Registry"
+        echo "  - Homebrew (pending tap update)"
+        echo "  - Scoop (pending bucket update)"
+        
+    - name: Notify Failure
+      if: needs.release.result == 'failure'
+      run: |
+        echo "❌ Release ${{ github.ref_name }} failed!"
+        echo "Check the logs for details."
+        exit 1

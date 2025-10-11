@@ -1,0 +1,252 @@
+version: 2
+
+# Project metadata
+project_name: mpesa-cli
+
+# Git configuration
+git:
+  # What should be used to sort tags when gathering the current and previous
+  # tags if there are more than one tag in the same commit.
+  tag_sort: -version:refname
+
+# Before hooks - run before building
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+# Build configuration
+builds:
+  - id: mpesa-cli
+    main: ./main.go
+    binary: mpesa-cli
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - 386
+    goarm:
+      - "6"
+      - "7"
+    ignore:
+      - goos: darwin
+        goarch: 386
+      - goos: darwin
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+      - goos: windows
+        goarch: arm
+      - goos: freebsd
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm
+
+# Archive configuration
+archives:
+  - id: default
+    builds:
+      - mpesa-cli
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{- .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end -}}
+    files:
+      - README.md
+      - LICENSE
+      - completions/*
+
+# Universal macOS binary
+universal_binaries:
+  - id: mpesa-cli-universal
+    replace: true
+
+# Homebrew tap
+brews:
+  - repository:
+      owner: martwebber
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    directory: Formula
+    homepage: https://github.com/martwebber/mpesa-cli
+    description: "A command-line interface for M-Pesa API operations"
+    license: "MIT"
+    skip_upload: auto
+    dependencies:
+      - name: go
+        type: optional
+    install: |
+      bin.install "mpesa-cli"
+      
+      # Install shell completions
+      bash_completion.install "completions/mpesa-cli.bash" => "mpesa-cli"
+      zsh_completion.install "completions/mpesa-cli.zsh" => "_mpesa-cli"
+      fish_completion.install "completions/mpesa-cli.fish"
+    test: |
+      system "#{bin}/mpesa-cli", "version"
+
+# Scoop bucket
+scoops:
+  - repository:
+      owner: martwebber
+      name: scoop-bucket
+      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "Scoop update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: https://github.com/martwebber/mpesa-cli
+    description: "A command-line interface for M-Pesa API operations"
+    license: MIT
+    skip_upload: auto
+
+# Docker images
+dockers:
+  - id: mpesa-cli-docker
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/martwebber/mpesa-cli:latest"
+      - "ghcr.io/martwebber/mpesa-cli:{{ .Tag }}"
+      - "ghcr.io/martwebber/mpesa-cli:v{{ .Major }}"
+      - "ghcr.io/martwebber/mpesa-cli:v{{ .Major }}.{{ .Minor }}"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source=https://github.com/martwebber/mpesa-cli"
+      - "--label=org.opencontainers.image.description=A command-line interface for M-Pesa API operations"
+      - "--label=org.opencontainers.image.licenses=MIT"
+    extra_files:
+      - scripts/
+      - README.md
+      - LICENSE
+
+# Checksums
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# SBOMs (Software Bill of Materials)
+sboms:
+  - artifacts: archive
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_sbom.spdx.json"
+
+# Snapshots (for unreleased versions)
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - '^build:'
+      - typo
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: "New Features"
+      regexp: "^.*feat[(\\w)]*:+.*$"
+      order: 0
+    - title: "Bug Fixes"
+      regexp: "^.*fix[(\\w)]*:+.*$"
+      order: 1
+    - title: "Security Updates"
+      regexp: "^.*sec[(\\w)]*:+.*$"
+      order: 2
+    - title: "Performance Improvements"
+      regexp: "^.*perf[(\\w)]*:+.*$"
+      order: 3
+    - title: "Other Changes"
+      order: 999
+
+# Release configuration
+release:
+  github:
+    owner: martwebber
+    name: mpesa-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## M-Pesa CLI {{ .Tag }} 🚀
+    
+    Welcome to this new release of M-Pesa CLI! 
+    
+    ### Installation
+    
+    #### Homebrew (macOS/Linux)
+    ```bash
+    brew install martwebber/tap/mpesa-cli
+    ```
+    
+    #### Scoop (Windows)
+    ```powershell
+    scoop bucket add martwebber https://github.com/martwebber/scoop-bucket.git
+    scoop install mpesa-cli
+    ```
+    
+    #### Docker
+    ```bash
+    docker run --rm ghcr.io/martwebber/mpesa-cli:{{ .Tag }} version
+    ```
+    
+    #### Download Binary
+    Download the appropriate binary for your system from the assets below.
+  footer: |
+    ### Verification
+    
+    All binaries are signed and can be verified using the checksums below.
+    
+    **Full Changelog**: https://github.com/martwebber/mpesa-cli/compare/{{ .PreviousTag }}...{{ .Tag }}
+  
+  # Disable SCM release
+  disable: false
+
+# Milestones
+milestones:
+  - close: true
+    fail_on_error: false
+    name_template: "{{ .Tag }}"
+
+# Announce (can be configured for various platforms)
+# announces:
+#   - provider: discord
+#     message_template: 'M-Pesa CLI {{ .Tag }} is out! Check it out: {{ .ReleaseURL }}'
