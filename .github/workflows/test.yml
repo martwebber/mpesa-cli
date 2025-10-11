@@ -81,6 +81,29 @@ jobs:
       with:
         go-version: 1.23.x
         
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Verify dependencies
+      run: go mod verify
+      
+    - name: Debug dependencies
+      run: |
+        echo "=== go.mod content ==="
+        cat go.mod
+        echo "=== keyring dependency check ==="
+        grep -i keyring go.mod || echo "keyring not found in go.mod"
+        echo "=== go list dependencies ==="
+        go list -m all | grep -i keyring || echo "keyring not in module list"
+        
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v6
       with:
