@@ -87,7 +87,6 @@ nfpms:
     maintainer: Martin Mwangi <mwangi.martin24@gmail.com>
     description: A command-line interface for M-Pesa API operations
     license: MIT
-    group: Applications/Internet
     formats:
       - rpm
     dependencies:
