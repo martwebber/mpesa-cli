@@ -31,6 +31,64 @@ jobs:
       with:
         go-version: 1.25.x
         
+    # Ensure package manager repositories exist before GoReleaser tries to use them
+    - name: Setup package repositories
+      run: |
+        # Create homebrew-tap repository if it doesn't exist
+        if ! gh repo view ${{ github.repository_owner }}/homebrew-tap &> /dev/null; then
+          echo "Creating homebrew-tap repository..."
+          gh repo create homebrew-tap --public --description "Homebrew formulae for M-Pesa CLI"
+          
+          # Initialize with basic structure
+          git clone https://github.com/${{ github.repository_owner }}/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+          mkdir -p Formula
+          cat > README.md << EOF
+        # Homebrew Tap for M-Pesa CLI
+        
+        ## Installation
+        \`\`\`bash
+        brew tap ${{ github.repository_owner }}/tap
+        brew install mpesa-cli
+        \`\`\`
+        EOF
+          git add .
+          git -c user.name="GoReleaser Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize Homebrew tap"
+          git push origin main
+          cd -
+          rm -rf /tmp/homebrew-tap
+        else
+          echo "homebrew-tap repository already exists"
+        fi
+        
+        # Create scoop-bucket repository if it doesn't exist  
+        if ! gh repo view ${{ github.repository_owner }}/scoop-bucket &> /dev/null; then
+          echo "Creating scoop-bucket repository..."
+          gh repo create scoop-bucket --public --description "Scoop bucket for M-Pesa CLI"
+          
+          # Initialize with basic structure
+          git clone https://github.com/${{ github.repository_owner }}/scoop-bucket.git /tmp/scoop-bucket
+          cd /tmp/scoop-bucket
+          cat > README.md << EOF
+        # Scoop Bucket for M-Pesa CLI
+        
+        ## Installation
+        \`\`\`powershell
+        scoop bucket add ${{ github.repository_owner }} https://github.com/${{ github.repository_owner }}/scoop-bucket.git
+        scoop install mpesa-cli
+        \`\`\`
+        EOF
+          git add .
+          git -c user.name="GoReleaser Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize Scoop bucket"
+          git push origin main
+          cd -
+          rm -rf /tmp/scoop-bucket
+        else
+          echo "scoop-bucket repository already exists"
+        fi
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Cache Go modules
       uses: actions/cache@v4
       with:

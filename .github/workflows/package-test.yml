@@ -24,8 +24,23 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
+      - name: Check if Homebrew tap exists
+        id: check-tap
+        run: |
+          if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/homebrew-tap" > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Homebrew tap repository does not exist yet. Skipping test."
+          fi
+          
       - name: Test Homebrew installation
+        if: steps.check-tap.outputs.exists == 'true'
         run: bash scripts/install-test.sh homebrew
+        
+      - name: Skip Homebrew test
+        if: steps.check-tap.outputs.exists == 'false'
+        run: echo "🔄 Homebrew tap not ready yet - this is expected for new releases"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
@@ -74,12 +89,30 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
+      - name: Check if Scoop bucket exists
+        id: check-bucket
+        shell: bash
+        run: |
+          if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/scoop-bucket" > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Scoop bucket repository does not exist yet. Skipping test."
+          fi
+          
       - name: Setup Scoop
+        if: steps.check-bucket.outputs.exists == 'true'
         uses: MinoruSekine/setup-scoop@v4
         
       - name: Test Scoop installation
+        if: steps.check-bucket.outputs.exists == 'true'
         shell: powershell
         run: bash scripts/install-test.sh scoop
+        
+      - name: Skip Scoop test
+        if: steps.check-bucket.outputs.exists == 'false'
+        shell: bash
+        run: echo "🔄 Scoop bucket not ready yet - this is expected for new releases"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
