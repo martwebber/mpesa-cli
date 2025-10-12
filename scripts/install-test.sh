@@ -26,28 +26,28 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-notify_pagerduty() {
-    if [[ -n "$PAGERDUTY_INTEGRATION_KEY" ]]; then
-        local status="$1"
-        local message="$2"
+# notify_pagerduty() {
+#     if [[ -n "$PAGERDUTY_INTEGRATION_KEY" ]]; then
+#         local status="$1"
+#         local message="$2"
         
-        curl -X POST https://events.pagerduty.com/v2/enqueue \
-          -H 'Content-Type: application/json' \
-          -d "{
-            \"routing_key\": \"$PAGERDUTY_INTEGRATION_KEY\",
-            \"event_action\": \"trigger\",
-            \"payload\": {
-              \"summary\": \"M-Pesa CLI $PACKAGE_MANAGER installation $status\",
-              \"source\": \"github-actions\",
-              \"severity\": \"error\",
-              \"custom_details\": {
-                \"message\": \"$message\",
-                \"package_manager\": \"$PACKAGE_MANAGER\"
-              }
-            }
-          }" > /dev/null 2>&1 || true
-    fi
-}
+#         curl -X POST https://events.pagerduty.com/v2/enqueue \
+#           -H 'Content-Type: application/json' \
+#           -d "{
+#             \"routing_key\": \"$PAGERDUTY_INTEGRATION_KEY\",
+#             \"event_action\": \"trigger\",
+#             \"payload\": {
+#               \"summary\": \"M-Pesa CLI $PACKAGE_MANAGER installation $status\",
+#               \"source\": \"github-actions\",
+#               \"severity\": \"error\",
+#               \"custom_details\": {
+#                 \"message\": \"$message\",
+#                 \"package_manager\": \"$PACKAGE_MANAGER\"
+#               }
+#             }
+#           }" > /dev/null 2>&1 || true
+#     fi
+# }
 
 test_installation() {
     log_info "Testing $CLI_NAME installation..."
@@ -88,19 +88,19 @@ case "$PACKAGE_MANAGER" in
         # Add our tap
         brew tap martwebber/tap || {
             log_error "Failed to add Homebrew tap"
-            notify_pagerduty "failed" "Failed to add Homebrew tap"
+            # notify_pagerduty "failed" "Failed to add Homebrew tap"
             exit 1
         }
         
         # Install the package
         brew install $CLI_NAME || {
             log_error "Failed to install via Homebrew"
-            notify_pagerduty "failed" "Failed to install via Homebrew"
+            # notify_pagerduty "failed" "Failed to install via Homebrew"
             exit 1
         }
         
         test_installation || {
-            notify_pagerduty "failed" "Installation verification failed for Homebrew"
+            # notify_pagerduty "failed" "Installation verification failed for Homebrew"
             exit 1
         }
         ;;
@@ -111,7 +111,7 @@ case "$PACKAGE_MANAGER" in
         # Update package list
         sudo apt-get update || {
             log_error "Failed to update apt package list"
-            notify_pagerduty "failed" "Failed to update apt package list"
+            # notify_pagerduty "failed" "Failed to update apt package list"
             exit 1
         }
         
@@ -125,23 +125,23 @@ case "$PACKAGE_MANAGER" in
         if [[ -n "$LATEST_URL" ]]; then
             wget -O /tmp/mpesa-cli.deb "$LATEST_URL" || {
                 log_error "Failed to download .deb package"
-                notify_pagerduty "failed" "Failed to download .deb package"
+                # notify_pagerduty "failed" "Failed to download .deb package"
                 exit 1
             }
             
             sudo dpkg -i /tmp/mpesa-cli.deb || {
                 log_error "Failed to install .deb package"
-                notify_pagerduty "failed" "Failed to install .deb package"
+                # notify_pagerduty "failed" "Failed to install .deb package"
                 exit 1
             }
         else
             log_error "Could not find .deb package URL"
-            notify_pagerduty "failed" "Could not find .deb package URL"
+            # notify_pagerduty "failed" "Could not find .deb package URL"
             exit 1
         fi
         
         test_installation || {
-            notify_pagerduty "failed" "Installation verification failed for APT"
+            # notify_pagerduty "failed" "Installation verification failed for APT"
             exit 1
         }
         ;;
@@ -152,7 +152,7 @@ case "$PACKAGE_MANAGER" in
         # Install wget if not available
         yum install -y wget || {
             log_error "Failed to install wget"
-            notify_pagerduty "failed" "Failed to install wget"
+            # notify_pagerduty "failed" "Failed to install wget"
             exit 1
         }
         
@@ -162,23 +162,23 @@ case "$PACKAGE_MANAGER" in
         if [[ -n "$LATEST_URL" ]]; then
             wget -O /tmp/mpesa-cli.rpm "$LATEST_URL" || {
                 log_error "Failed to download .rpm package"
-                notify_pagerduty "failed" "Failed to download .rpm package"
+                # notify_pagerduty "failed" "Failed to download .rpm package"
                 exit 1
             }
             
             yum install -y /tmp/mpesa-cli.rpm || {
                 log_error "Failed to install .rpm package"
-                notify_pagerduty "failed" "Failed to install .rpm package"
+                # notify_pagerduty "failed" "Failed to install .rpm package"
                 exit 1
             }
         else
             log_error "Could not find .rpm package URL"
-            notify_pagerduty "failed" "Could not find .rpm package URL"
+            # notify_pagerduty "failed" "Could not find .rpm package URL"
             exit 1
         fi
         
         test_installation || {
-            notify_pagerduty "failed" "Installation verification failed for YUM"
+            # notify_pagerduty "failed" "Installation verification failed for YUM"
             exit 1
         }
         ;;
@@ -189,19 +189,19 @@ case "$PACKAGE_MANAGER" in
         # Add our bucket
         scoop bucket add martwebber https://github.com/martwebber/scoop-bucket || {
             log_error "Failed to add Scoop bucket"
-            notify_pagerduty "failed" "Failed to add Scoop bucket"
+            # notify_pagerduty "failed" "Failed to add Scoop bucket"
             exit 1
         }
         
         # Install the package
         scoop install $CLI_NAME || {
             log_error "Failed to install via Scoop"
-            notify_pagerduty "failed" "Failed to install via Scoop"
+            # notify_pagerduty "failed" "Failed to install via Scoop"
             exit 1
         }
         
         test_installation || {
-            notify_pagerduty "failed" "Installation verification failed for Scoop"
+            # notify_pagerduty "failed" "Installation verification failed for Scoop"
             exit 1
         }
         ;;
@@ -212,13 +212,13 @@ case "$PACKAGE_MANAGER" in
         # Test Docker image from GHCR
         docker run --rm ghcr.io/martwebber/$CLI_NAME:latest --version || {
             log_error "Failed to run Docker image from GHCR"
-            notify_pagerduty "failed" "Failed to run Docker image from GHCR"
+            # notify_pagerduty "failed" "Failed to run Docker image from GHCR"
             exit 1
         }
         
         docker run --rm ghcr.io/martwebber/$CLI_NAME:latest --help > /dev/null || {
             log_error "Failed to run --help in Docker from GHCR"
-            notify_pagerduty "failed" "Failed to run --help in Docker from GHCR"
+            # notify_pagerduty "failed" "Failed to run --help in Docker from GHCR"
             exit 1
         }
         

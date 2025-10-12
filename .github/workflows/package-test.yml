@@ -26,8 +26,8 @@ jobs:
           
       - name: Test Homebrew installation
         run: bash scripts/install-test.sh homebrew
-        env:
-          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        # env:
+          # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   apt:
     runs-on: ubuntu-latest
@@ -41,8 +41,8 @@ jobs:
           
       - name: Test APT installation
         run: bash scripts/install-test.sh apt
-        env:
-          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        # env:
+          # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   yum:
     runs-on: ubuntu-latest
@@ -61,8 +61,8 @@ jobs:
           
       - name: Test YUM installation
         run: bash scripts/install-test.sh yum
-        env:
-          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        # env:
+          # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   scoop:
     runs-on: windows-latest
@@ -80,8 +80,8 @@ jobs:
       - name: Test Scoop installation
         shell: powershell
         run: bash scripts/install-test.sh scoop
-        env:
-          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        # env:
+          # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   docker:
     runs-on: ubuntu-latest
@@ -95,8 +95,8 @@ jobs:
           
       - name: Test Docker installation
         run: bash scripts/install-test.sh docker
-        env:
-          PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+        # env:
+          # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   # Test installation methods that don't require package managers
   direct-download:

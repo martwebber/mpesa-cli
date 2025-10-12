@@ -10,13 +10,13 @@ if [[ -z "$VIRUSTOTAL_API_KEY" ]]; then
     exit 1
 fi
 
-if [[ -z "$GITHUB_TOKEN" ]]; then
-    echo "GITHUB_TOKEN environment variable is not set"
+if [[ -z "$PERSONAL_ACCESS_TOKEN" ]]; then
+    echo "PERSONAL_ACCESS_TOKEN environment variable is not set"
     exit 1
 fi
 
 # Get the latest release
-LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+LATEST_RELEASE=$(curl -s -H "Authorization: token $PERSONAL_ACCESS_TOKEN" \
     "https://api.github.com/repos/martwebber/mpesa-cli/releases/latest")
 
 # Extract Windows zip URLs

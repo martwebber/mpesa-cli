@@ -88,7 +88,7 @@ brews:
   - repository:
       owner: martwebber
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: "{{ .Env.PERSONAL_ACCESS_TOKEN }}"
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com
@@ -116,7 +116,7 @@ scoops:
   - repository:
       owner: martwebber
       name: scoop-bucket
-      token: "{{ .Env.SCOOP_BUCKET_GITHUB_TOKEN }}"
+      token: "{{ .Env.PERSONAL_ACCESS_TOKEN }}"
     commit_author:
       name: goreleaserbot
       email: bot@goreleaser.com

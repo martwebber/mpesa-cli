@@ -169,31 +169,31 @@ echo
 echo "The release workflow needs GitHub Personal Access Tokens to update the package repositories."
 echo "You need to create tokens with the following permissions:"
 echo
-echo -e "${YELLOW}1. HOMEBREW_TAP_GITHUB_TOKEN:${NC}"
+echo -e "${YELLOW}1. PERSONAL_ACCESS_TOKEN:${NC}"
 echo "   - Go to: https://github.com/settings/tokens"
 echo "   - Create a classic token with 'repo' scope"
 echo "   - Copy the token"
 echo
 
-read -p "Enter HOMEBREW_TAP_GITHUB_TOKEN: " homebrew_token
+read -p "Enter PERSONAL_ACCESS_TOKEN: " homebrew_token
 if [[ -n "$homebrew_token" ]]; then
-    echo "$homebrew_token" | gh secret set HOMEBREW_TAP_GITHUB_TOKEN --repo "$GITHUB_USER/mpesa-cli"
-    echo -e "${GREEN}✅ Set HOMEBREW_TAP_GITHUB_TOKEN${NC}"
+    echo "$homebrew_token" | gh secret set PERSONAL_ACCESS_TOKEN --repo "$GITHUB_USER/mpesa-cli"
+    echo -e "${GREEN}✅ Set PERSONAL_ACCESS_TOKEN${NC}"
 fi
 
 echo
-echo -e "${YELLOW}2. SCOOP_BUCKET_GITHUB_TOKEN:${NC}"
+echo -e "${YELLOW}2. PERSONAL_ACCESS_TOKEN:${NC}"
 echo "   - You can use the same token as above"
 echo
 
-read -p "Enter SCOOP_BUCKET_GITHUB_TOKEN (or press Enter to use the same token): " scoop_token
+read -p "Enter PERSONAL_ACCESS_TOKEN (or press Enter to use the same token): " scoop_token
 if [[ -z "$scoop_token" && -n "$homebrew_token" ]]; then
     scoop_token="$homebrew_token"
 fi
 
 if [[ -n "$scoop_token" ]]; then
-    echo "$scoop_token" | gh secret set SCOOP_BUCKET_GITHUB_TOKEN --repo "$GITHUB_USER/mpesa-cli"
-    echo -e "${GREEN}✅ Set SCOOP_BUCKET_GITHUB_TOKEN${NC}"
+    echo "$scoop_token" | gh secret set PERSONAL_ACCESS_TOKEN --repo "$GITHUB_USER/mpesa-cli"
+    echo -e "${GREEN}✅ Set PERSONAL_ACCESS_TOKEN${NC}"
 fi
 
 echo
