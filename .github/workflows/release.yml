@@ -36,7 +36,8 @@ jobs:
       run: |
         # Set GitHub user from repository owner
         GITHUB_USER="${{ github.repository_owner }}"
-        
+        echo "🔍 Checking user: $GITHUB_USER"
+
         # Function to create repository if it doesn't exist
         create_repo_if_not_exists() {
           local repo_name=$1
