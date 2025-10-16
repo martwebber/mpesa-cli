@@ -42,17 +42,23 @@ if ! command -v gh &> /dev/null; then
 fi
 
 # Check if user is logged in to GitHub CLI
-if ! gh auth status &> /dev/null; then
+if [[ "$DRY_RUN" != "1" ]] && ! gh auth status &> /dev/null; then
     echo -e "${YELLOW}⚠️  You're not logged in to GitHub CLI.${NC}"
     echo "Please run: gh auth login"
     exit 1
 fi
 
-echo -e "${GREEN}✅ GitHub CLI is ready${NC}"
-echo
+if [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "${YELLOW}[DRY_RUN] Skipping GitHub CLI authentication check${NC}"
+    GITHUB_USER="martwebber"  # Use actual username for dry run
+else
+    GITHUB_USER=$(gh api user | jq -r .login)
+fi
 
-# Get current user
-GITHUB_USER=$(gh api user | jq -r .login)
+if [[ "$DRY_RUN" != "1" ]]; then
+    echo -e "${GREEN}✅ GitHub CLI is ready${NC}"
+fi
+
 echo -e "${BLUE}GitHub user: ${GITHUB_USER}${NC}"
 echo
 
@@ -67,7 +73,7 @@ create_repo_if_not_exists() {
         echo -e "${YELLOW}⚠️  Repository $repo_name already exists${NC}"
     else
         echo -e "${BLUE}Creating repository: $repo_name${NC}"
-        dry_run "gh repo create \"$repo_name\" --public --description \"$description\" --confirm"
+        dry_run "gh repo create \"$GITHUB_USER/$repo_name\" --public --description \"$description\""
         echo -e "${GREEN}✅ Created repository: $repo_name${NC}"
     fi
 }
@@ -193,29 +199,34 @@ echo
 
 # Set up GitHub secrets
 echo -e "${BLUE}🔐 Setting up GitHub Secrets${NC}"
-echo
-echo "The release workflow needs a GitHub Personal Access Token to update the package repositories."
-echo "You need to create a token with the following permissions:"
-echo
-echo -e "${YELLOW}PERSONAL_ACCESS_TOKEN:${NC}"
-echo "   - Go to: https://github.com/settings/tokens"
-echo "   - Create a classic token with 'repo' scope"
-echo "   - Copy the token"
-echo
-echo "Note: The same token is used for both Homebrew tap and Scoop bucket repositories."
-echo
 
-read -p "Enter PERSONAL_ACCESS_TOKEN: " personal_token
-if [[ -n "$personal_token" ]]; then
-    dry_run "echo \"$personal_token\" | gh secret set PERSONAL_ACCESS_TOKEN --repo \"$GITHUB_USER/mpesa-cli\""
-    if [[ "$DRY_RUN" == "1" ]]; then
-        echo -e "${GREEN}[DRY_RUN] PERSONAL_ACCESS_TOKEN would be set in repo $GITHUB_USER/mpesa-cli${NC}"
-    else
+# Check if we're running in CI with GH_TOKEN already available
+if [[ -n "$GH_TOKEN" ]]; then
+    echo -e "${GREEN}✅ Running in CI environment with GH_TOKEN available${NC}"
+    echo -e "${GREEN}   Token will be used for both Homebrew and Scoop repositories${NC}"
+elif [[ "$DRY_RUN" == "1" ]]; then
+    echo -e "${YELLOW}[DRY_RUN] Would check for PERSONAL_ACCESS_TOKEN or prompt for input${NC}"
+else
+    echo
+    echo "The release workflow needs a GitHub Personal Access Token to update the package repositories."
+    echo "You need to create a token with the following permissions:"
+    echo
+    echo -e "${YELLOW}PERSONAL_ACCESS_TOKEN:${NC}"
+    echo "   - Go to: https://github.com/settings/tokens"
+    echo "   - Create a classic token with 'repo' scope"
+    echo "   - Copy the token"
+    echo
+    echo "Note: The same token is used for both Homebrew tap and Scoop bucket repositories."
+    echo
+
+    read -p "Enter PERSONAL_ACCESS_TOKEN: " personal_token
+    if [[ -n "$personal_token" ]]; then
+        dry_run "echo \"$personal_token\" | gh secret set PERSONAL_ACCESS_TOKEN --repo \"$GITHUB_USER/mpesa-cli\""
         echo -e "${GREEN}✅ Set PERSONAL_ACCESS_TOKEN${NC}"
         echo -e "${GREEN}   This token will be used for both Homebrew and Scoop repositories${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Skipped setting PERSONAL_ACCESS_TOKEN - you can set it later in GitHub Settings > Secrets${NC}"
     fi
-else
-    echo -e "${YELLOW}⚠️  Skipped setting PERSONAL_ACCESS_TOKEN - you can set it later in GitHub Settings > Secrets${NC}"
 fi
 
 echo
