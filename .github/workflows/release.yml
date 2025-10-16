@@ -36,6 +36,10 @@ jobs:
       run: |
         # Set GitHub user from repository owner
         GITHUB_USER="${{ github.repository_owner }}"
+        
+        # Configure git with token for authentication
+        git config --global credential.helper 'store --file=/tmp/git-credentials'
+        echo "https://x-access-token:${GH_TOKEN}@github.com" > /tmp/git-credentials
         echo "🔍 Checking user: $GITHUB_USER"
 
         # Function to create repository if it doesn't exist
@@ -60,7 +64,7 @@ jobs:
             
             # Initialize git repo and add content based on repo type
             git init
-            git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/$GITHUB_USER/$repo_name.git"
             
             if [[ "$repo_name" == "homebrew-tap" ]]; then
               mkdir -p Formula
