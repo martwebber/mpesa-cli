@@ -40,7 +40,7 @@ jobs:
           gh repo create homebrew-tap --public --description "Homebrew formulae for M-Pesa CLI"
           
           # Initialize with basic structure
-          git clone https://github.com/${{ github.repository_owner }}/homebrew-tap.git /tmp/homebrew-tap
+          git clone https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git /tmp/homebrew-tap
           cd /tmp/homebrew-tap
           mkdir -p Formula
           cat > README.md << EOF
@@ -54,7 +54,7 @@ jobs:
         EOF
           git add .
           git -c user.name="GoReleaser Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize Homebrew tap"
-          git push origin main
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git HEAD:main
           cd -
           rm -rf /tmp/homebrew-tap
         else
@@ -67,7 +67,7 @@ jobs:
           gh repo create scoop-bucket --public --description "Scoop bucket for M-Pesa CLI"
           
           # Initialize with basic structure
-          git clone https://github.com/${{ github.repository_owner }}/scoop-bucket.git /tmp/scoop-bucket
+          git clone https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/scoop-bucket.git /tmp/scoop-bucket
           cd /tmp/scoop-bucket
           cat > README.md << EOF
         # Scoop Bucket for M-Pesa CLI
@@ -80,13 +80,14 @@ jobs:
         EOF
           git add .
           git -c user.name="GoReleaser Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize Scoop bucket"
-          git push origin main
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/scoop-bucket.git HEAD:main
           cd -
           rm -rf /tmp/scoop-bucket
         else
           echo "scoop-bucket repository already exists"
         fi
       env:
+        GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
     - name: Cache Go modules
@@ -149,6 +150,7 @@ jobs:
         args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
     # Sign container images with cosign
     - name: Sign container images

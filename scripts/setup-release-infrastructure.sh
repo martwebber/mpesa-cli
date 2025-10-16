@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Support a DRY_RUN mode to allow safe local testing without making API calls
+DRY_RUN=${DRY_RUN:-0}
+dry_run() {
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "[DRY_RUN] $*"
+    else
+        eval "$@"
+    fi
+}
+
 echo "🚀 Setting up M-Pesa CLI Release Infrastructure"
 echo "=============================================="
 echo
@@ -57,7 +67,7 @@ create_repo_if_not_exists() {
         echo -e "${YELLOW}⚠️  Repository $repo_name already exists${NC}"
     else
         echo -e "${BLUE}Creating repository: $repo_name${NC}"
-        gh repo create "$repo_name" --public --description "$description" --confirm
+        dry_run "gh repo create \"$repo_name\" --public --description \"$description\" --confirm"
         echo -e "${GREEN}✅ Created repository: $repo_name${NC}"
     fi
 }
@@ -67,13 +77,17 @@ echo -e "${BLUE}📦 Setting up Homebrew Tap${NC}"
 create_repo_if_not_exists "homebrew-tap" "Homebrew formulae for M-Pesa CLI"
 
 # Initialize Homebrew tap with basic structure
-if ! gh repo view "$GITHUB_USER/homebrew-tap" -- README.md &> /dev/null; then
+    if ! gh repo view "$GITHUB_USER/homebrew-tap" -- README.md &> /dev/null; then
     echo -e "${BLUE}Initializing Homebrew tap structure${NC}"
     
     # Clone the repo temporarily
     temp_dir=$(mktemp -d)
-    git clone "https://github.com/$GITHUB_USER/homebrew-tap.git" "$temp_dir"
-    cd "$temp_dir"
+    dry_run "git clone https://github.com/$GITHUB_USER/homebrew-tap.git \"$temp_dir\""
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "[DRY_RUN] Would cd into $temp_dir and initialize files"
+    else
+        cd "$temp_dir"
+    fi
     
     # Create README
     cat > README.md << EOF
@@ -101,15 +115,20 @@ EOF
     mkdir -p Formula
     
     # Commit and push
-    git add .
-    git commit -m "Initialize Homebrew tap structure"
-    git push origin main
-    
-    # Cleanup
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-    
-    echo -e "${GREEN}✅ Initialized Homebrew tap structure${NC}"
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "[DRY_RUN] git add . && git commit -m 'Initialize Homebrew tap structure' && git push origin main"
+        echo "[DRY_RUN] Cleanup $temp_dir"
+    else
+        git add .
+        git commit -m "Initialize Homebrew tap structure"
+        git push origin main
+        
+        # Cleanup
+        cd - > /dev/null
+        rm -rf "$temp_dir"
+        
+        echo -e "${GREEN}✅ Initialized Homebrew tap structure${NC}"
+    fi
 fi
 
 echo
@@ -119,13 +138,17 @@ echo -e "${BLUE}📦 Setting up Scoop Bucket${NC}"
 create_repo_if_not_exists "scoop-bucket" "Scoop bucket for M-Pesa CLI"
 
 # Initialize Scoop bucket with basic structure
-if ! gh repo view "$GITHUB_USER/scoop-bucket" -- README.md &> /dev/null; then
+    if ! gh repo view "$GITHUB_USER/scoop-bucket" -- README.md &> /dev/null; then
     echo -e "${BLUE}Initializing Scoop bucket structure${NC}"
     
     # Clone the repo temporarily
     temp_dir=$(mktemp -d)
-    git clone "https://github.com/$GITHUB_USER/scoop-bucket.git" "$temp_dir"
-    cd "$temp_dir"
+    dry_run "git clone https://github.com/$GITHUB_USER/scoop-bucket.git \"$temp_dir\""
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "[DRY_RUN] Would cd into $temp_dir and initialize files"
+    else
+        cd "$temp_dir"
+    fi
     
     # Create README
     cat > README.md << EOF
@@ -150,15 +173,20 @@ This bucket is automatically maintained by GoReleaser during the release process
 EOF
 
     # Commit and push
-    git add .
-    git commit -m "Initialize Scoop bucket structure"
-    git push origin main
-    
-    # Cleanup
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-    
-    echo -e "${GREEN}✅ Initialized Scoop bucket structure${NC}"
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo "[DRY_RUN] git add . && git commit -m 'Initialize Scoop bucket structure' && git push origin main"
+        echo "[DRY_RUN] Cleanup $temp_dir"
+    else
+        git add .
+        git commit -m "Initialize Scoop bucket structure"
+        git push origin main
+        
+        # Cleanup
+        cd - > /dev/null
+        rm -rf "$temp_dir"
+        
+        echo -e "${GREEN}✅ Initialized Scoop bucket structure${NC}"
+    fi
 fi
 
 echo
@@ -179,9 +207,13 @@ echo
 
 read -p "Enter PERSONAL_ACCESS_TOKEN: " personal_token
 if [[ -n "$personal_token" ]]; then
-    echo "$personal_token" | gh secret set PERSONAL_ACCESS_TOKEN --repo "$GITHUB_USER/mpesa-cli"
-    echo -e "${GREEN}✅ Set PERSONAL_ACCESS_TOKEN${NC}"
-    echo -e "${GREEN}   This token will be used for both Homebrew and Scoop repositories${NC}"
+    dry_run "echo \"$personal_token\" | gh secret set PERSONAL_ACCESS_TOKEN --repo \"$GITHUB_USER/mpesa-cli\""
+    if [[ "$DRY_RUN" == "1" ]]; then
+        echo -e "${GREEN}[DRY_RUN] PERSONAL_ACCESS_TOKEN would be set in repo $GITHUB_USER/mpesa-cli${NC}"
+    else
+        echo -e "${GREEN}✅ Set PERSONAL_ACCESS_TOKEN${NC}"
+        echo -e "${GREEN}   This token will be used for both Homebrew and Scoop repositories${NC}"
+    fi
 else
     echo -e "${YELLOW}⚠️  Skipped setting PERSONAL_ACCESS_TOKEN - you can set it later in GitHub Settings > Secrets${NC}"
 fi
