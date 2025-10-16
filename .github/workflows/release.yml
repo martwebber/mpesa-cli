@@ -33,7 +33,89 @@ jobs:
         
     # Ensure package manager repositories exist before GoReleaser tries to use them
     - name: Setup package repositories
-      run: bash scripts/setup-release-infrastructure.sh
+      run: |
+        # Set GitHub user from repository owner
+        GITHUB_USER="${{ github.repository_owner }}"
+        
+        # Function to create repository if it doesn't exist
+        create_repo_if_not_exists() {
+          local repo_name=$1
+          local description="$2"
+          
+          echo "🔍 Checking repository: $repo_name"
+          
+          if gh repo view "$GITHUB_USER/$repo_name" &> /dev/null; then
+            echo "✅ Repository $GITHUB_USER/$repo_name already exists"
+            return 0
+          fi
+          
+          echo "📦 Creating repository: $GITHUB_USER/$repo_name"
+          if gh repo create "$GITHUB_USER/$repo_name" --public --description "$description"; then
+            echo "✅ Successfully created repository: $GITHUB_USER/$repo_name"
+            
+            # Initialize repository with basic structure
+            temp_dir=$(mktemp -d)
+            cd "$temp_dir"
+            
+            # Initialize git repo and add content based on repo type
+            git init
+            git remote add origin "https://github.com/$GITHUB_USER/$repo_name.git"
+            
+            if [[ "$repo_name" == "homebrew-tap" ]]; then
+              mkdir -p Formula
+              cat > README.md << 'EOF'
+        # Homebrew Tap for M-Pesa CLI
+        
+        ## Installation
+        ```bash
+        brew tap {{ github.repository_owner }}/homebrew-tap
+        brew install mpesa-cli
+        ```
+        
+        ## About
+        This tap contains Homebrew formulae for the M-Pesa CLI tool.
+        Formulae are automatically updated when new releases are published.
+        EOF
+            else
+              cat > README.md << 'EOF'
+        # Scoop Bucket for M-Pesa CLI
+        
+        ## Installation
+        ```powershell
+        scoop bucket add {{ github.repository_owner }} https://github.com/{{ github.repository_owner }}/scoop-bucket.git
+        scoop install mpesa-cli
+        ```
+        
+        ## About
+        This bucket contains Scoop manifests for the M-Pesa CLI tool.
+        Manifests are automatically updated when new releases are published.
+        EOF
+            fi
+            
+            # Replace template variables
+            sed -i "s/{{ github.repository_owner }}/$GITHUB_USER/g" README.md
+            
+            # Commit and push
+            git add .
+            git -c user.name="Release Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize $repo_name"
+            git branch -M main
+            git push -u origin main
+            
+            cd - > /dev/null
+            rm -rf "$temp_dir"
+            
+            echo "✅ Initialized $repo_name with basic structure"
+          else
+            echo "❌ Failed to create repository: $GITHUB_USER/$repo_name"
+            return 1
+          fi
+        }
+        
+        # Create repositories
+        create_repo_if_not_exists "homebrew-tap" "Homebrew formulae for M-Pesa CLI"
+        create_repo_if_not_exists "scoop-bucket" "Scoop bucket for M-Pesa CLI"
+        
+        echo "🎉 Repository setup complete!"
       env:
         GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         
