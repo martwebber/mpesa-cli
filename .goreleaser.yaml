@@ -150,6 +150,12 @@ dockers:
       - scripts/
       - README.md
       - LICENSE
+      - go.mod
+      - go.sum
+      - cmd/
+      - pkg/
+      - main.go
+      - completions/
 
 # Checksums
 checksum:
