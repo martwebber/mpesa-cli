@@ -16,3 +16,4 @@ scoop install mpesa-cli
 ## About
 
 This bucket is automatically maintained by GoReleaser during the release process.
+
