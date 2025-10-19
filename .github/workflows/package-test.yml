@@ -24,11 +24,18 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
-      - name: Check if Homebrew tap exists
+      - name: Check if Homebrew formula exists
         id: check-tap
         run: |
           if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/homebrew-tap" > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            # Repository exists, now check if the formula exists
+            if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/homebrew-tap/contents/Formula/mpesa-cli.rb" > /dev/null 2>&1; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+              echo "✅ Homebrew formula exists and ready for testing"
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Homebrew tap exists but mpesa-cli formula not found. This is expected for test releases."
+            fi
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "⚠️ Homebrew tap repository does not exist yet. Skipping test."
@@ -40,7 +47,7 @@ jobs:
         
       - name: Skip Homebrew test
         if: steps.check-tap.outputs.exists == 'false'
-        run: echo "🔄 Homebrew tap not ready yet - this is expected for new releases"
+        run: echo "🔄 Homebrew formula not ready yet - this is expected for test releases or new production releases before package updates complete"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
@@ -89,12 +96,19 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
-      - name: Check if Scoop bucket exists
+      - name: Check if Scoop manifest exists
         id: check-bucket
         shell: bash
         run: |
           if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/scoop-bucket" > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            # Repository exists, now check if the manifest exists
+            if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/scoop-bucket/contents/mpesa-cli.json" > /dev/null 2>&1; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+              echo "✅ Scoop manifest exists and ready for testing"
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Scoop bucket exists but mpesa-cli manifest not found. This is expected for test releases."
+            fi
           else
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "⚠️ Scoop bucket repository does not exist yet. Skipping test."
@@ -112,7 +126,7 @@ jobs:
       - name: Skip Scoop test
         if: steps.check-bucket.outputs.exists == 'false'
         shell: bash
-        run: echo "🔄 Scoop bucket not ready yet - this is expected for new releases"
+        run: echo "🔄 Scoop manifest not ready yet - this is expected for test releases or new production releases before package updates complete"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
