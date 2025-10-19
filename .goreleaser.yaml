@@ -179,7 +179,6 @@ nfpms:
       - mpesa-cli-old
     conflicts:
       - mpesa-cli-old
-
     contents:
       - src: completions/mpesa-cli.bash
         dst: /etc/bash_completion.d/mpesa-cli
