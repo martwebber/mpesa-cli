@@ -155,16 +155,16 @@ jobs:
       - name: Download and test latest release
         shell: bash
         run: |
-          # Determine OS and architecture
+          # Determine OS and architecture (matching GoReleaser naming convention)
           case "$RUNNER_OS" in
             Linux)
-              OS="linux"
+              OS="Linux"
               ;;
             macOS)
-              OS="macos"
+              OS="Darwin"
               ;;
             Windows)
-              OS="windows"
+              OS="Windows"
               ;;
           esac
           
@@ -180,7 +180,7 @@ jobs:
           # Get latest release URL
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/martwebber/mpesa-cli/releases/latest)
           
-          if [[ "$OS" == "windows" ]]; then
+          if [[ "$OS" == "Windows" ]]; then
             DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o "https://.*mpesa-cli.*${OS}.*${ARCH}\.zip" | head -1)
             FILE_EXT="zip"
           else
