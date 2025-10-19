@@ -30,12 +30,15 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     ./main.go
 
 # Final stage
-FROM scratch
+FROM alpine:3.19
+
+# Install ca-certificates and set timezone
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /root/
 
 # Import from builder
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /app/mpesa-cli /usr/local/bin/mpesa-cli
+COPY --from=builder /app/mpesa-cli .
 
 # Create a non-root user
 # Note: In scratch image, we can't create users dynamically, 
@@ -52,7 +55,7 @@ LABEL org.opencontainers.image.documentation="https://github.com/martwebber/mpes
 LABEL org.opencontainers.image.url="https://github.com/martwebber/mpesa-cli"
 
 # Set entrypoint
-ENTRYPOINT ["/usr/local/bin/mpesa-cli"]
+ENTRYPOINT ["./mpesa-cli"]
 
 # Default command
 CMD ["--help"]

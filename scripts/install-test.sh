@@ -7,6 +7,7 @@ set -e
 
 PACKAGE_MANAGER="$1"
 CLI_NAME="mpesa-cli"
+PROJECT_NAME="mpesa-cli"
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,7 +41,7 @@ log_error() {
 #               \"summary\": \"M-Pesa CLI $PACKAGE_MANAGER installation $status\",
 #               \"source\": \"github-actions\",
 #               \"severity\": \"error\",
-#               \"custom_details\": {
+#               \"cus                                                               m_details\": {
 #                 \"message\": \"$message\",
 #                 \"package_manager\": \"$PACKAGE_MANAGER\"
 #               }
@@ -120,7 +121,7 @@ case "$PACKAGE_MANAGER" in
         log_info "Testing direct .deb installation..."
         
         # Download latest release
-        LATEST_URL=$(curl -s https://api.github.com/repos/martwebber/mpesa-cli/releases/latest | grep -o "https://.*amd64\.deb" | head -1)
+        LATEST_URL=$(curl -s https://api.github.com/repos/martwebber/$PROJECT_NAME/releases/latest | grep -o "https://.*amd64\.deb" | head -1)
         
         if [[ -n "$LATEST_URL" ]]; then
             wget -O /tmp/mpesa-cli.deb "$LATEST_URL" || {
@@ -210,15 +211,13 @@ case "$PACKAGE_MANAGER" in
         log_info "Testing Docker installation..."
         
         # Test Docker image from GHCR
-        docker run --rm ghcr.io/martwebber/$CLI_NAME:latest --version || {
+        docker run --rm ghcr.io/martwebber/$PROJECT_NAME:latest --version || {
             log_error "Failed to run Docker image from GHCR"
-            # notify_pagerduty "failed" "Failed to run Docker image from GHCR"
             exit 1
         }
         
-        docker run --rm ghcr.io/martwebber/$CLI_NAME:latest --help > /dev/null || {
+        docker run --rm ghcr.io/martwebber/$PROJECT_NAME:latest --help > /dev/null || {
             log_error "Failed to run --help in Docker from GHCR"
-            # notify_pagerduty "failed" "Failed to run --help in Docker from GHCR"
             exit 1
         }
         

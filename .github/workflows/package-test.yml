@@ -4,9 +4,10 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: '0 8 * * *'  # Daily at 8 AM UTC
-  push:
-    tags:
-      - '*'
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
   pull_request:
     types: [opened, synchronize]
     paths:
@@ -14,8 +15,52 @@ on:
       - '.goreleaser/**'
 
 jobs:
+  wait-for-release:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    outputs:
+      release-ready: ${{ steps.wait.outputs.ready }}
+      release-tag: ${{ steps.wait.outputs.tag }}
+    steps:
+      - name: Wait for release to be fully available
+        id: wait
+        run: |
+          echo "🔄 Waiting for release workflow to complete and packages to be available..."
+          
+          # Get the latest release tag
+          LATEST_TAG=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
+          echo "Latest release tag: $LATEST_TAG"
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # Wait up to 10 minutes for packages to be available
+          MAX_WAIT=600  # 10 minutes
+          WAIT_INTERVAL=30  # 30 seconds
+          ELAPSED=0
+          
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            echo "⏳ Checking package availability... (${ELAPSED}s elapsed)"
+            
+            # Check if GitHub release has assets
+            ASSET_COUNT=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/$LATEST_TAG" | grep -c '"download_count"' || echo "0")
+            
+            if [ "$ASSET_COUNT" -gt "10" ]; then
+              echo "✅ GitHub release has $ASSET_COUNT assets - packages should be ready"
+              echo "ready=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "⏳ Only $ASSET_COUNT assets found, waiting..."
+            sleep $WAIT_INTERVAL
+            ELAPSED=$((ELAPSED + WAIT_INTERVAL))
+          done
+          
+          echo "⚠️ Timeout reached - proceeding with available packages"
+          echo "ready=partial" >> $GITHUB_OUTPUT
+
   homebrew:
     runs-on: macos-latest
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,15 +69,44 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
-      - name: Check if Homebrew tap exists
+      - name: Check if Homebrew formula exists and is current
         id: check-tap
         run: |
-          if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/homebrew-tap" > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Homebrew tap repository does not exist yet. Skipping test."
+          EXPECTED_VERSION="${{ needs.wait-for-release.outputs.release-tag }}"
+          if [ -z "$EXPECTED_VERSION" ]; then
+            # Fallback for non-release triggers
+            EXPECTED_VERSION=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
           fi
+          
+          echo "Expected version: $EXPECTED_VERSION"
+          
+          # Wait up to 5 minutes for Homebrew formula to be updated
+          MAX_WAIT=300
+          WAIT_INTERVAL=30
+          ELAPSED=0
+          
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/homebrew-tap/contents/Formula/mpesa-cli.rb" > /dev/null 2>&1; then
+              # Get current version in formula
+              FORMULA_VERSION=$(curl -s "https://raw.githubusercontent.com/${{ github.repository_owner }}/homebrew-tap/main/Formula/mpesa-cli.rb" | grep 'version' | head -1 | sed 's/.*version "\([^"]*\)".*/\1/' || echo "unknown")
+              
+              if [ "$FORMULA_VERSION" = "${EXPECTED_VERSION#v}" ]; then
+                echo "exists=true" >> $GITHUB_OUTPUT
+                echo "✅ Homebrew formula exists and is current (v$FORMULA_VERSION)"
+                exit 0
+              else
+                echo "⏳ Formula exists but version mismatch: expected ${EXPECTED_VERSION#v}, found $FORMULA_VERSION"
+              fi
+            else
+              echo "⏳ Homebrew formula not found yet..."
+            fi
+            
+            sleep $WAIT_INTERVAL
+            ELAPSED=$((ELAPSED + WAIT_INTERVAL))
+          done
+          
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Homebrew formula not ready after ${MAX_WAIT}s - skipping test"
           
       - name: Test Homebrew installation
         if: steps.check-tap.outputs.exists == 'true'
@@ -40,12 +114,14 @@ jobs:
         
       - name: Skip Homebrew test
         if: steps.check-tap.outputs.exists == 'false'
-        run: echo "🔄 Homebrew tap not ready yet - this is expected for new releases"
+        run: echo "🔄 Homebrew formula not ready yet - this is expected for test releases or new production releases before package updates complete"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   apt:
     runs-on: ubuntu-latest
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,6 +138,8 @@ jobs:
   yum:
     runs-on: ubuntu-latest
     container: fedora:latest
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Install dependencies
         run: |
@@ -81,6 +159,8 @@ jobs:
 
   scoop:
     runs-on: windows-latest
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,16 +169,45 @@ jobs:
             scripts/install-test.sh
           sparse-checkout-cone-mode: false
           
-      - name: Check if Scoop bucket exists
+      - name: Check if Scoop manifest exists and is current
         id: check-bucket
         shell: bash
         run: |
-          if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/scoop-bucket" > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Scoop bucket repository does not exist yet. Skipping test."
+          EXPECTED_VERSION="${{ needs.wait-for-release.outputs.release-tag }}"
+          if [ -z "$EXPECTED_VERSION" ]; then
+            # Fallback for non-release triggers
+            EXPECTED_VERSION=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": "\([^"]*\)".*/\1/')
           fi
+          
+          echo "Expected version: $EXPECTED_VERSION"
+          
+          # Wait up to 5 minutes for Scoop manifest to be updated
+          MAX_WAIT=300
+          WAIT_INTERVAL=30
+          ELAPSED=0
+          
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            if curl -sf "https://api.github.com/repos/${{ github.repository_owner }}/scoop-bucket/contents/mpesa-cli.json" > /dev/null 2>&1; then
+              # Get current version in manifest
+              MANIFEST_VERSION=$(curl -s "https://raw.githubusercontent.com/${{ github.repository_owner }}/scoop-bucket/main/mpesa-cli.json" | grep '"version"' | sed 's/.*"version": "\([^"]*\)".*/\1/' || echo "unknown")
+              
+              if [ "$MANIFEST_VERSION" = "${EXPECTED_VERSION#v}" ]; then
+                echo "exists=true" >> $GITHUB_OUTPUT
+                echo "✅ Scoop manifest exists and is current (v$MANIFEST_VERSION)"
+                exit 0
+              else
+                echo "⏳ Manifest exists but version mismatch: expected ${EXPECTED_VERSION#v}, found $MANIFEST_VERSION"
+              fi
+            else
+              echo "⏳ Scoop manifest not found yet..."
+            fi
+            
+            sleep $WAIT_INTERVAL
+            ELAPSED=$((ELAPSED + WAIT_INTERVAL))
+          done
+          
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "⚠️ Scoop manifest not ready after ${MAX_WAIT}s - skipping test"
           
       - name: Setup Scoop
         if: steps.check-bucket.outputs.exists == 'true'
@@ -112,12 +221,14 @@ jobs:
       - name: Skip Scoop test
         if: steps.check-bucket.outputs.exists == 'false'
         shell: bash
-        run: echo "🔄 Scoop bucket not ready yet - this is expected for new releases"
+        run: echo "🔄 Scoop manifest not ready yet - this is expected for test releases or new production releases before package updates complete"
         # env:
           # PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
 
   docker:
     runs-on: ubuntu-latest
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,20 +248,22 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    needs: wait-for-release
+    if: always() && (needs.wait-for-release.outputs.release-ready == 'true' || needs.wait-for-release.outputs.release-ready == 'partial' || github.event_name != 'workflow_run')
     steps:
       - name: Download and test latest release
         shell: bash
         run: |
-          # Determine OS and architecture
+          # Determine OS and architecture (matching GoReleaser naming convention)
           case "$RUNNER_OS" in
             Linux)
-              OS="linux"
+              OS="Linux"
               ;;
             macOS)
-              OS="macos"
+              OS="Darwin"
               ;;
             Windows)
-              OS="windows"
+              OS="Windows"
               ;;
           esac
           
@@ -166,7 +279,7 @@ jobs:
           # Get latest release URL
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/martwebber/mpesa-cli/releases/latest)
           
-          if [[ "$OS" == "windows" ]]; then
+          if [[ "$OS" == "Windows" ]]; then
             DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | grep -o "https://.*mpesa-cli.*${OS}.*${ARCH}\.zip" | head -1)
             FILE_EXT="zip"
           else

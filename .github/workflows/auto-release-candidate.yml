@@ -1,0 +1,178 @@
+name: Auto Release Candidate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  analyze-changes:
+    if: github.event_name == 'push' || (github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.analysis.outputs.should-release }}
+      version-type: ${{ steps.analysis.outputs.version-type }}
+      next-version: ${{ steps.analysis.outputs.next-version }}
+      release-notes: ${{ steps.analysis.outputs.release-notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Analyze changes for release
+        id: analysis
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Get commits since last tag
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline)
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+          
+          # Analyze commit messages for semantic versioning
+          MAJOR_CHANGE=false
+          MINOR_CHANGE=false
+          PATCH_CHANGE=false
+          
+          while IFS= read -r commit; do
+            if [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?!: ]] || [[ "$commit" =~ BREAKING[[:space:]]CHANGE ]]; then
+              MAJOR_CHANGE=true
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?: ]]; then
+              MINOR_CHANGE=true
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(fix|bugfix|patch)(\(.+\))?: ]]; then
+              PATCH_CHANGE=true
+            fi
+          done <<< "$COMMITS"
+          
+          # Determine version bump
+          if [ "$MAJOR_CHANGE" = true ]; then
+            VERSION_TYPE="major"
+          elif [ "$MINOR_CHANGE" = true ]; then
+            VERSION_TYPE="minor"
+          elif [ "$PATCH_CHANGE" = true ]; then
+            VERSION_TYPE="patch"
+          else
+            VERSION_TYPE="none"
+          fi
+          
+          echo "Version type: $VERSION_TYPE"
+          
+          # Calculate next version
+          if [ "$VERSION_TYPE" != "none" ]; then
+            CURRENT_VERSION=${LATEST_TAG#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            
+            case $VERSION_TYPE in
+              major)
+                NEXT_VERSION="v$((MAJOR + 1)).0.0"
+                ;;
+              minor)
+                NEXT_VERSION="v${MAJOR}.$((MINOR + 1)).0"
+                ;;
+              patch)
+                NEXT_VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+                ;;
+            esac
+            
+            echo "should-release=true" >> $GITHUB_OUTPUT
+            echo "next-version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "should-release=false" >> $GITHUB_OUTPUT
+            echo "next-version=" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version-type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+          
+          # Generate release notes
+          RELEASE_NOTES=$(cat << 'EOF'
+          ## Changes in this release
+          
+          EOF)
+          
+          # Add commit details
+          while IFS= read -r commit; do
+            if [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?: ]]; then
+              RELEASE_NOTES="${RELEASE_NOTES}
+          ✨ ${commit#* }"
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(fix|bugfix)(\(.+\))?: ]]; then
+              RELEASE_NOTES="${RELEASE_NOTES}
+          🐛 ${commit#* }"
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+docs(\(.+\))?: ]]; then
+              RELEASE_NOTES="${RELEASE_NOTES}
+          📚 ${commit#* }"
+            else
+              RELEASE_NOTES="${RELEASE_NOTES}
+          🔧 ${commit#* }"
+            fi
+          done <<< "$COMMITS"
+          
+          # Save release notes to file for multiline output
+          echo "$RELEASE_NOTES" > release_notes.md
+          echo "release-notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  run-tests:
+    needs: analyze-changes
+    if: needs.analyze-changes.outputs.should-release == 'true'
+    uses: ./.github/workflows/test.yml
+
+  create-release-candidate:
+    needs: [analyze-changes, run-tests]
+    if: needs.analyze-changes.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Create Release Candidate Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚀 Release Candidate: ${{ needs.analyze-changes.outputs.next-version }}`,
+              body: `## 🎯 Automated Release Analysis
+            
+            **Proposed Version:** ${{ needs.analyze-changes.outputs.next-version }}
+            **Change Type:** ${{ needs.analyze-changes.outputs.version-type }}
+            **Tests Status:** ✅ All tests passed
+            
+            ### 📋 Proposed Release Notes
+            ${{ needs.analyze-changes.outputs.release-notes }}
+            
+            ### 🚀 Quick Actions
+            
+            **To release immediately:**
+            \`\`\`bash
+            # Option 1: Use GitHub CLI
+            gh workflow run "Manual Release" -f version="${{ needs.analyze-changes.outputs.next-version }}"
+            
+            # Option 2: Create tag manually
+            git tag ${{ needs.analyze-changes.outputs.next-version }}
+            git push origin ${{ needs.analyze-changes.outputs.next-version }}
+            \`\`\`
+            
+            **To customize:**
+            - Edit this issue with your preferred version number
+            - Modify release notes as needed
+            - Then run the commands above
+            
+            **To skip this release:**
+            - Simply close this issue
+            
+            ---
+            
+            _This issue was automatically created by analyzing commits since the last release. All tests have passed and the release is ready to go!_`,
+              labels: ['release-candidate', 'automated']
+            });
+            
+            console.log(`Created release candidate issue #${issue.number}`);
