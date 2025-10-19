@@ -167,13 +167,13 @@ nfpms:
     description: "A command-line interface for M-Pesa API operations"
     maintainer: Martin Webber <mwangi.martin24@gmail.com>
     license: MIT
-    
+
     formats:
       - deb
       - rpm
-    
+
     bindir: /usr/local/bin
-    
+
     contents:
       - src: completions/mpesa-cli.bash
         dst: /etc/bash_completion.d/mpesa-cli
