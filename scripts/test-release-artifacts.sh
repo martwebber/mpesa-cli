@@ -8,7 +8,7 @@ set -e
 # Configuration
 PROJECT_NAME="mpesa-cli"
 GITHUB_USER="martwebber"
-LATEST_TAG="v1.0.21-test"
+LATEST_TAG="v1.0.22"
 
 # Colors for output
 RED='\033[0;31m'
