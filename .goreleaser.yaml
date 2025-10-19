@@ -81,6 +81,8 @@ archives:
 # Universal macOS binary
 universal_binaries:
   - id: mpesa-cli-universal
+    ids:
+      - mpesa-cli
     replace: true
 
 # Homebrew tap
@@ -156,16 +158,37 @@ dockers:
       - README.md
       - LICENSE
 
+# NFPMs for .deb and .rpm packages
+nfpms:
+  - id: packages
+    package_name: mpesa-cli
+    vendor: martwebber
+    homepage: https://github.com/martwebber/mpesa-cli
+    description: "A command-line interface for M-Pesa API operations"
+    maintainer: Martin Webber <mwangi.martin24@gmail.com>
+    license: MIT
+    
+    formats:
+      - deb
+      - rpm
+    
+    bindir: /usr/local/bin
+    
+    contents:
+      - src: completions/mpesa-cli.bash
+        dst: /etc/bash_completion.d/mpesa-cli
+        type: config
+      - src: completions/mpesa-cli.zsh
+        dst: /usr/share/zsh/site-functions/_mpesa-cli
+        type: config
+      - src: completions/mpesa-cli.fish
+        dst: /usr/share/fish/completions/mpesa-cli.fish
+        type: config
+
 # Checksums
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
-
-# SBOMs (Software Bill of Materials)
-sboms:
-  - artifacts: archive
-    documents:
-      - "{{ .ProjectName }}_{{ .Version }}_sbom.json"
 
 # Snapshots (for unreleased versions)
 snapshot:
