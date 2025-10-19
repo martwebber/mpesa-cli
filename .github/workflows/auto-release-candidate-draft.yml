@@ -1,0 +1,266 @@
+name: Auto Release Candidate (Draft)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    types: [closed]
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  analyze-changes:
+    if: github.event_name == 'push' || (github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.analysis.outputs.should-release }}
+      version-type: ${{ steps.analysis.outputs.version-type }}
+      next-version: ${{ steps.analysis.outputs.next-version }}
+      release-notes: ${{ steps.analysis.outputs.release-notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Analyze changes for release
+        id: analysis
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Get commits since last tag
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline)
+          echo "Commits since last tag:"
+          echo "$COMMITS"
+          
+          # Analyze commit messages for semantic versioning
+          MAJOR_CHANGE=false
+          MINOR_CHANGE=false
+          PATCH_CHANGE=false
+          
+          while IFS= read -r commit; do
+            if [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?!: ]] || [[ "$commit" =~ BREAKING[[:space:]]CHANGE ]]; then
+              MAJOR_CHANGE=true
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?: ]]; then
+              MINOR_CHANGE=true
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(fix|bugfix|patch)(\(.+\))?: ]]; then
+              PATCH_CHANGE=true
+            fi
+          done <<< "$COMMITS"
+          
+          # Determine version bump
+          if [ "$MAJOR_CHANGE" = true ]; then
+            VERSION_TYPE="major"
+          elif [ "$MINOR_CHANGE" = true ]; then
+            VERSION_TYPE="minor"
+          elif [ "$PATCH_CHANGE" = true ]; then
+            VERSION_TYPE="patch"
+          else
+            VERSION_TYPE="none"
+          fi
+          
+          echo "Version type: $VERSION_TYPE"
+          
+          # Calculate next version
+          if [ "$VERSION_TYPE" != "none" ]; then
+            CURRENT_VERSION=${LATEST_TAG#v}
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+            
+            case $VERSION_TYPE in
+              major)
+                NEXT_VERSION="v$((MAJOR + 1)).0.0"
+                ;;
+              minor)
+                NEXT_VERSION="v${MAJOR}.$((MINOR + 1)).0"
+                ;;
+              patch)
+                NEXT_VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+                ;;
+            esac
+            
+            echo "should-release=true" >> $GITHUB_OUTPUT
+            echo "next-version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "should-release=false" >> $GITHUB_OUTPUT
+            echo "next-version=" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version-type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+          
+          # Generate enhanced release notes
+          cat > release_notes.md << 'EOF'
+          ## Changes in this release
+          
+          EOF
+          
+          # Add commit details with enhanced emojis and categorization
+          while IFS= read -r commit; do
+            if [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?!: ]] || [[ "$commit" =~ BREAKING[[:space:]]CHANGE ]]; then
+              echo "💥 **BREAKING**: ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(feat|feature)(\(.+\))?: ]]; then
+              echo "✨ ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+(fix|bugfix)(\(.+\))?: ]]; then
+              echo "🐛 ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+docs(\(.+\))?: ]]; then
+              echo "📚 ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+perf(\(.+\))?: ]]; then
+              echo "⚡ ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+refactor(\(.+\))?: ]]; then
+              echo "♻️ ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+test(\(.+\))?: ]]; then
+              echo "🧪 ${commit#* }" >> release_notes.md
+            elif [[ "$commit" =~ ^[a-f0-9]+[[:space:]]+ci(\(.+\))?: ]]; then
+              echo "🔄 ${commit#* }" >> release_notes.md
+            else
+              echo "🔧 ${commit#* }" >> release_notes.md
+            fi
+          done <<< "$COMMITS"
+          
+          # Add installation instructions
+          cat >> release_notes.md << EOF
+          
+          ## 📦 Installation
+          
+          ### Ubuntu/Debian
+          \`\`\`bash
+          curl -LO "https://github.com/${{ github.repository }}/releases/download/$NEXT_VERSION/mpesa-cli_${NEXT_VERSION#v}_linux_amd64.deb"
+          sudo dpkg -i "mpesa-cli_${NEXT_VERSION#v}_linux_amd64.deb"
+          \`\`\`
+          
+          ### Homebrew (macOS/Linux)
+          \`\`\`bash
+          brew tap martwebber/tap && brew install mpesa-cli
+          \`\`\`
+          
+          ### Scoop (Windows)
+          \`\`\`bash
+          scoop bucket add martwebber https://github.com/martwebber/scoop-bucket
+          scoop install mpesa-cli
+          \`\`\`
+          
+          ### Docker
+          \`\`\`bash
+          docker run --rm ghcr.io/martwebber/mpesa-cli:$NEXT_VERSION --version
+          \`\`\`
+          
+          ### Direct Download
+          Visit the [releases page](https://github.com/${{ github.repository }}/releases/tag/$NEXT_VERSION) to download binaries for your platform.
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/$LATEST_TAG...$NEXT_VERSION
+          EOF
+          
+          # Save release notes for output
+          echo "release-notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  run-tests:
+    needs: analyze-changes
+    if: needs.analyze-changes.outputs.should-release == 'true'
+    uses: ./.github/workflows/test.yml
+
+  create-draft-release:
+    needs: [analyze-changes, run-tests]
+    if: needs.analyze-changes.outputs.should-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Create or Update Draft Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.analyze-changes.outputs.next-version }}';
+            const changeType = '${{ needs.analyze-changes.outputs.version-type }}';
+            const releaseNotes = `${{ needs.analyze-changes.outputs.release-notes }}`;
+            
+            // Check if draft release already exists
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 10
+            });
+            
+            const draftRelease = releases.data.find(r => 
+              r.draft && r.tag_name === version
+            );
+            
+            if (draftRelease) {
+              console.log(`📝 Updating existing draft release: ${draftRelease.html_url}`);
+              
+              // Update existing draft
+              const { data: updatedRelease } = await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: draftRelease.id,
+                name: version,
+                body: releaseNotes,
+                draft: true
+              });
+              
+              console.log(`✅ Updated draft release: ${updatedRelease.html_url}`);
+              return updatedRelease.html_url;
+            } else {
+              console.log(`📝 Creating new draft release for ${version}`);
+              
+              // Create new draft release
+              const { data: newRelease } = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: version,
+                name: version,
+                body: releaseNotes,
+                draft: true,
+                prerelease: false
+              });
+              
+              console.log(`✅ Created draft release: ${newRelease.html_url}`);
+              return newRelease.html_url;
+            }
+            
+      - name: Notify Team
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = '${{ needs.analyze-changes.outputs.next-version }}';
+            const changeType = '${{ needs.analyze-changes.outputs.version-type }}';
+            
+            // Get recent commits for context
+            const commits = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 5
+            });
+            
+            const recentCommitters = [...new Set(commits.data.map(c => c.author?.login).filter(Boolean))];
+            
+            // Create a comment on the latest commit
+            const latestCommit = commits.data[0];
+            
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: latestCommit.sha,
+              body: `🚀 **Draft Release Ready!**
+              
+            **Version:** ${version} (${changeType} release)
+            **Status:** ✅ All tests passed
+            
+            **📋 Next Steps:**
+            1. [Review the draft release](https://github.com/${context.repo.owner}/${context.repo.repo}/releases)
+            2. Edit release notes if needed
+            3. Click "Publish release" when ready
+            
+            **🏷️ Quick Publish:**
+            \`\`\`bash
+            gh release edit ${version} --draft=false
+            \`\`\`
+            
+            cc: ${recentCommitters.map(u => '@' + u).join(' ')}`
+            });
+            
+            console.log('✅ Team notification sent');
