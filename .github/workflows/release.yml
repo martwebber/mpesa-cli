@@ -8,260 +8,107 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write
 
 jobs:
-  # Run all CI checks before release
-  pre-release-validation:
+  test:
     uses: ./.github/workflows/test.yml
 
-  # Release job - only runs after successful validation
+  setup-infrastructure:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup package repositories
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      run: |
+        # Create homebrew-tap repository if it doesn't exist
+        if ! gh repo view martwebber/homebrew-tap >/dev/null 2>&1; then
+          echo "Creating homebrew-tap repository..."
+          gh repo create martwebber/homebrew-tap --public --description "Homebrew tap for M-Pesa CLI"
+          
+          # Initialize with basic structure
+          git clone https://github.com/martwebber/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+          
+          echo "# Homebrew Tap for M-Pesa CLI" > README.md
+          echo "" >> README.md
+          echo "Homebrew formulae for M-Pesa CLI tools." >> README.md
+          
+          mkdir -p Formula
+          git add .
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "Initial commit"
+          git push
+        else
+          echo "homebrew-tap repository already exists"
+        fi
+        
+        # Create scoop-bucket repository if it doesn't exist
+        if ! gh repo view martwebber/scoop-bucket >/dev/null 2>&1; then
+          echo "Creating scoop-bucket repository..."
+          gh repo create martwebber/scoop-bucket --public --description "Scoop bucket for M-Pesa CLI"
+          
+          # Initialize with basic structure
+          git clone https://github.com/martwebber/scoop-bucket.git /tmp/scoop-bucket
+          cd /tmp/scoop-bucket
+          
+          echo "# Scoop Bucket for M-Pesa CLI" > README.md
+          echo "" >> README.md
+          echo "Scoop bucket for M-Pesa CLI tools." >> README.md
+          
+          mkdir -p bucket
+          git add .
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git commit -m "Initial commit"
+          git push
+        else
+          echo "scoop-bucket repository already exists"
+        fi
+
   release:
     runs-on: ubuntu-latest
-    needs: pre-release-validation
-    
+    needs: setup-infrastructure
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        
+    
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.24.x
+        go-version: '1.24'
         
-    # Ensure package manager repositories exist before GoReleaser tries to use them
-    - name: Setup package repositories
-      run: |
-        # Set GitHub user from repository owner
-        GITHUB_USER="${{ github.repository_owner }}"
-        
-        # Configure git with token for authentication
-        git config --global credential.helper 'store --file=/tmp/git-credentials'
-        echo "https://x-access-token:${GH_TOKEN}@github.com" > /tmp/git-credentials
-        echo "🔍 Checking user: $GITHUB_USER"
-
-        # Function to create repository if it doesn't exist
-        create_repo_if_not_exists() {
-          local repo_name=$1
-          local description="$2"
-          
-          echo "🔍 Checking repository: $repo_name"
-          
-          if gh repo view "$GITHUB_USER/$repo_name" &> /dev/null; then
-            echo "✅ Repository $GITHUB_USER/$repo_name already exists"
-            return 0
-          fi
-          
-          echo "📦 Creating repository: $GITHUB_USER/$repo_name"
-          if gh repo create "$GITHUB_USER/$repo_name" --public --description "$description"; then
-            echo "✅ Successfully created repository: $GITHUB_USER/$repo_name"
-            
-            # Initialize repository with basic structure
-            temp_dir=$(mktemp -d)
-            cd "$temp_dir"
-            
-            # Initialize git repo and add content based on repo type
-            git init
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/$GITHUB_USER/$repo_name.git"
-            
-            if [[ "$repo_name" == "homebrew-tap" ]]; then
-              mkdir -p Formula
-              cat > README.md << 'EOF'
-        # Homebrew Tap for M-Pesa CLI
-        
-        ## Installation
-        ```bash
-        brew tap {{ github.repository_owner }}/homebrew-tap
-        brew install mpesa-cli
-        ```
-        
-        ## About
-        This tap contains Homebrew formulae for the M-Pesa CLI tool.
-        Formulae are automatically updated when new releases are published.
-        EOF
-            else
-              cat > README.md << 'EOF'
-        # Scoop Bucket for M-Pesa CLI
-        
-        ## Installation
-        ```powershell
-        scoop bucket add {{ github.repository_owner }} https://github.com/{{ github.repository_owner }}/scoop-bucket.git
-        scoop install mpesa-cli
-        ```
-        
-        ## About
-        This bucket contains Scoop manifests for the M-Pesa CLI tool.
-        Manifests are automatically updated when new releases are published.
-        EOF
-            fi
-            
-            # Replace template variables
-            sed -i "s/{{ github.repository_owner }}/$GITHUB_USER/g" README.md
-            
-            # Commit and push
-            git add .
-            git -c user.name="Release Bot" -c user.email="bot@goreleaser.com" commit -m "Initialize $repo_name"
-            git branch -M main
-            git push -u origin main
-            
-            cd - > /dev/null
-            rm -rf "$temp_dir"
-            
-            echo "✅ Initialized $repo_name with basic structure"
-          else
-            echo "❌ Failed to create repository: $GITHUB_USER/$repo_name"
-            return 1
-          fi
-        }
-        
-        # Create repositories
-        create_repo_if_not_exists "homebrew-tap" "Homebrew formulae for M-Pesa CLI"
-        create_repo_if_not_exists "scoop-bucket" "Scoop bucket for M-Pesa CLI"
-        
-        echo "🎉 Repository setup complete!"
-      env:
-        GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        
-    - name: Download dependencies
-      run: go mod download
-      
-    - name: Verify dependencies
-      run: go mod verify
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     # Generate completions for packaging
     - name: Generate completions
       run: |
         go build -o mpesa-cli-temp .
+        mkdir -p completions
         ./mpesa-cli-temp completion bash > completions/mpesa-cli.bash
         ./mpesa-cli-temp completion zsh > completions/mpesa-cli.zsh
         ./mpesa-cli-temp completion fish > completions/mpesa-cli.fish
         ./mpesa-cli-temp completion powershell > completions/mpesa-cli.ps1
         rm mpesa-cli-temp
-        
-    # Login to GitHub Container Registry
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-
-    # Set up QEMU for multi-arch builds
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      
-    # Set up Docker Buildx
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    # Install cosign for signing
-    - name: Install cosign
-      uses: sigstore/cosign-installer@v3
-      with:
-        cosign-release: 'v2.2.4'
-
-    # Install syft for SBOM generation
-    - name: Install syft
-      run: |
-        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-
-    # Run GoReleaser
+    
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v6
       with:
         distribution: goreleaser
-        version: latest
+        version: v2.12.5
         args: release --clean
       env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-
-    # Sign container images with cosign
-    - name: Sign container images
-      env:
-        COSIGN_EXPERIMENTAL: 1
-      run: |
-        images=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep ghcr.io/martwebber/mpesa-cli | grep -v REPOSITORY)
-        for image in $images; do
-          echo "Signing $image"
-          cosign sign --yes $image
-        done
-
-  # Security scan of released artifacts
-  security-scan:
-    runs-on: ubuntu-latest
-    needs: release
-    if: always() && needs.release.result == 'success'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Scan Docker image with Trivy
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'ghcr.io/martwebber/mpesa-cli:${{ github.ref_name }}'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-  # Create GitHub Deployment
-  create-deployment:
-    runs-on: ubuntu-latest
-    needs: [release, security-scan]
-    if: always() && needs.release.result == 'success'
-    
-    steps:
-    - name: Create Deployment
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const { data: deployment } = await github.rest.repos.createDeployment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: context.ref,
-            environment: 'production',
-            description: 'Release ${{ github.ref_name }}',
-            auto_merge: false,
-            required_contexts: []
-          });
-          
-          await github.rest.repos.createDeploymentStatus({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            deployment_id: deployment.id,
-            state: 'success',
-            description: 'Successfully released ${{ github.ref_name }}',
-            environment_url: 'https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}'
-          });
-
-  # Notify on success/failure
-  notify:
-    runs-on: ubuntu-latest
-    needs: [release, security-scan, create-deployment]
-    if: always()
-    
-    steps:
-    - name: Notify Success
-      if: needs.release.result == 'success'
-      run: |
-        echo "🎉 Release ${{ github.ref_name }} completed successfully!"
-        echo "📦 Packages published to:"
-        echo "  - GitHub Releases"
-        echo "  - GitHub Container Registry"
-        echo "  - Homebrew (pending tap update)"
-        echo "  - Scoop (pending bucket update)"
-        
-    - name: Notify Failure
-      if: needs.release.result == 'failure'
-      run: |
-        echo "❌ Release ${{ github.ref_name }} failed!"
-        echo "Check the logs for details."
-        exit 1
